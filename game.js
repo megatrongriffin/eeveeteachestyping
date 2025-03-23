@@ -43,7 +43,6 @@ class PreloadScene extends Phaser.Scene {
     }
 
     preload() {
-        // Load Google Fonts WebFont loader
         this.load.script('webfont', 'https://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js');
 
         let progressBar = this.add.graphics();
@@ -123,7 +122,6 @@ class PreloadScene extends Phaser.Scene {
     }
 
     create() {
-        // Load "Press Start 2P" font from Google Fonts after WebFont script is loaded
         WebFont.load({
             google: {
                 families: ['Press Start 2P']
@@ -887,8 +885,29 @@ class SecretLevelScene extends Phaser.Scene {
 
 // Phaser game configuration and initialization
 function initializeGame() {
-    const canvas = document.getElementById('gameCanvas');
+    const gameContainer = document.getElementById('game-container');
+    if (!gameContainer) {
+        console.error('Game container not found');
+        return;
+    }
+
+    // Create and append the canvas
+    const canvas = document.createElement('canvas');
+    canvas.id = 'gameCanvas';
+    gameContainer.appendChild(canvas);
+
+    // Ensure the canvas is in the DOM before getting context
+    if (!document.getElementById('gameCanvas')) {
+        console.error('Canvas was not appended to the DOM correctly');
+        return;
+    }
+
+    // Get the context after appending to DOM
     const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) {
+        console.error('Failed to get 2D context from canvas');
+        return;
+    }
 
     const config = {
         type: Phaser.CANVAS,
@@ -912,11 +931,20 @@ function initializeGame() {
         }
     };
 
-    const game = new Phaser.Game(config);
-
-    window.addEventListener('resize', () => {
-        game.scale.resize(window.innerWidth, window.innerHeight);
-    });
+    try {
+        const game = new Phaser.Game(config);
+        window.addEventListener('resize', () => {
+            game.scale.resize(window.innerWidth, window.innerHeight);
+        });
+    } catch (e) {
+        console.error('Failed to initialize Phaser game:', e);
+    }
 }
 
-window.addEventListener('load', initializeGame);
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof Phaser === 'undefined') {
+        console.error('Phaser library not loaded');
+        return;
+    }
+    initializeGame();
+});
