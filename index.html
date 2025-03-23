@@ -330,22 +330,22 @@
                 gameState.paused = false;
 
                 this.background = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'bg_grasslands').setOrigin(0);
-                const floorY = this.cameras.main.height * 0.75;
-                this.hudRect = this.add.rectangle(0, floorY, this.cameras.main.width, this.cameras.main.height / 4, 0x8B4513).setOrigin(0);
-                this.floorTiles = this.add.tileSprite(0, floorY, this.cameras.main.width, 64, 'grass').setOrigin(0, 0);
+                this.floorY = this.cameras.main.height * 0.75; // Store as class property
+                this.hudRect = this.add.rectangle(0, this.floorY, this.cameras.main.width, this.cameras.main.height / 4, 0x8B4513).setOrigin(0);
+                this.floorTiles = this.add.tileSprite(0, this.floorY, this.cameras.main.width, 64, 'grass').setOrigin(0, 0);
 
                 this.clouds = this.add.group();
                 for (let i = 0; i < Phaser.Math.Between(2, 5); i++) {
                     const cloud = `cloud${Phaser.Math.Between(1, 3)}`;
-                    this.clouds.create(Phaser.Math.Between(0, this.cameras.main.width), Phaser.Math.Between(0, floorY / 2), cloud);
+                    this.clouds.create(Phaser.Math.Between(0, this.cameras.main.width), Phaser.Math.Between(0, this.floorY / 2), cloud);
                 }
 
                 this.characterX = this.cameras.main.width / 4;
-                this.character = this.add.sprite(this.characterX, floorY, 'eevee-walking').setOrigin(0.5, 1).setScale(2).play('eevee-walking');
+                this.character = this.add.sprite(this.characterX, this.floorY, 'eevee-walking').setOrigin(0.5, 1).setScale(2).play('eevee-walking');
                 this.tweens.add({
                     targets: this.character,
                     x: this.characterX,
-                    y: floorY - 100,
+                    y: this.floorY - 100,
                     duration: 500,
                     ease: 'Sine.easeOut',
                     yoyo: true,
@@ -358,11 +358,11 @@
                     fill: '#000000',
                     backgroundColor: '#ff0000'
                 }).setOrigin(1, 0).setInteractive().on('pointerdown', () => this.togglePause());
-                this.timeText = this.add.text(10, floorY + 20, 'Time: 0s', { font: '24px "Press Start 2P"', fill: '#000000' });
-                this.wpmText = this.add.text(10, floorY + 50, 'WPM: 0', { font: '24px "Press Start 2P"', fill: '#000000' });
-                this.missedText = this.add.text(10, floorY + 80, 'Missed: 0', { font: '24px "Press Start 2P"', fill: '#000000' });
-                this.scoreText = this.add.text(this.cameras.main.width / 2, floorY + 120, '0000000', { font: '48px "Press Start 2P"', fill: '#000000' }).setOrigin(0.5);
-                this.keyText = this.add.text(this.cameras.main.width - 100, floorY + 20, '', { font: '24px "Press Start 2P"', fill: '#000000' }).setOrigin(1, 0);
+                this.timeText = this.add.text(10, this.floorY + 20, 'Time: 0s', { font: '24px "Press Start 2P"', fill: '#000000' });
+                this.wpmText = this.add.text(10, this.floorY + 50, 'WPM: 0', { font: '24px "Press Start 2P"', fill: '#000000' });
+                this.missedText = this.add.text(10, this.floorY + 80, 'Missed: 0', { font: '24px "Press Start 2P"', fill: '#000000' });
+                this.scoreText = this.add.text(this.cameras.main.width / 2, this.floorY + 120, '0000000', { font: '48px "Press Start 2P"', fill: '#000000' }).setOrigin(0.5);
+                this.keyText = this.add.text(this.cameras.main.width - 100, this.floorY + 20, '', { font: '24px "Press Start 2P"', fill: '#000000' }).setOrigin(1, 0);
                 const meterY = 20;
                 const meterHeight = 24;
                 this.bonusMeterBg = this.add.rectangle(this.cameras.main.width / 2 - 102, meterY, 204, meterHeight, 0x000000);
@@ -374,7 +374,7 @@
                     fill: '#000000',
                     backgroundColor: '#0000ff'
                 }).setOrigin(1, 0).setInteractive().on('pointerdown', () => this.postHighScore()).setVisible(false);
-                this.nextGoalsText = this.add.text(10, floorY + 110, '', { font: '40px "Press Start 2P"', fill: '#000000' });
+                this.nextGoalsText = this.add.text(10, this.floorY + 110, '', { font: '40px "Press Start 2P"', fill: '#000000' });
 
                 this.goals = this.add.group();
                 this.spawnGoal(true);
@@ -387,6 +387,8 @@
                 this.backgroundMusic.play();
 
                 this.input.keyboard.on('keydown', this.handleKeyPress, this);
+
+                this.isIntercepting = false; // Flag to track interception state
             }
 
             update(time) {
@@ -400,25 +402,21 @@
                 this.background.tilePositionX -= 2;
                 this.floorTiles.tilePositionX -= 2;
                 this.clouds.getChildren().forEach(cloud => cloud.x -= 2);
-                const minX = 64;
+
+                const missThreshold = 0;
                 this.goals.getChildren().forEach(goal => {
-                    if (!goal.pushing || goal.x > minX) {
+                    if (!this.isIntercepting) { // Only move goals if not intercepting
                         goal.x -= 2;
                         goal.text.x = goal.x;
                     }
-                    if (goal.x <= this.characterX && !goal.pushing) {
-                        goal.pushing = true;
-                        this.character.setTexture('eevee-standing');
-                    }
-                    if (goal.pushing && goal.x > minX) {
-                        this.character.x = goal.x;
-                    } else if (goal.pushing && goal.x <= minX) {
-                        this.character.x = minX;
+                    if (goal.x <= missThreshold && !goal.intercepted) {
+                        // Handle miss: pause game and show high score button
                         gameState.paused = true;
                         this.highScoreButton.setVisible(true);
                         this.highScoreButton.y = this.pauseButton.y + this.pauseButton.height + 10;
                     }
                 });
+
                 if (this.secretBox) {
                     this.secretBox.time += this.time.delta / 1000;
                     this.secretBox.y = this.secretBox.originalY + 20 * Math.sin(this.secretBox.time * Math.PI * 2);
@@ -434,7 +432,7 @@
                 this.missedText.setText(`Missed: ${gameState.missedKeys}`);
                 this.scoreText.setText(String(gameState.score).padStart(7, '0'));
                 this.bonusMeterFill.width = (gameState.bonusMeter / gameState.bonusMax) * 200;
-                const onScreenGoals = this.goals.getChildren().filter(g => g.x < this.cameras.main.width);
+                const onScreenGoals = this.goals.getChildren().filter(g => g.x < this.cameras.main.width && !g.intercepted);
                 const nextGoals = onScreenGoals.slice(0, 2).map(g => g.key).join(' ');
                 this.nextGoalsText.setText(`Next: ${nextGoals}`);
 
@@ -445,19 +443,18 @@
             spawnGoal(initial = false) {
                 const keys = '1234567890abcdefghijklmnopqrstuvwxyz!@#$%^&*()_+-=[]{}|;:,.<>?'.split('');
                 const key = keys[Phaser.Math.Between(0, keys.length - 1)];
-                const floorY = this.cameras.main.height * 0.75;
-                const yPositions = [floorY - 100, floorY - 200, floorY - 300];
+                const yPositions = [this.floorY - 100, this.floorY - 200, this.floorY - 300];
                 const y = yPositions[Phaser.Math.Between(0, 2)];
                 const scale = Phaser.Math.FloatBetween(0.9, 1.1);
                 const goal = this.goals.create(this.cameras.main.width + 70, y, 'boxEmpty').setScale(scale);
                 goal.text = this.add.text(goal.x, goal.y, key, { font: `${Math.floor(70 * scale * 5 / 8)}px monospace`, fill: '#000000' }).setOrigin(0.5);
                 goal.key = key;
-                goal.pushing = false;
+                goal.intercepted = false; // Initialize intercepted flag
                 if (!initial) this.keyText.setText(`Key: ${key}`);
             }
 
             spawnSecretBox() {
-                const y = this.cameras.main.height * 0.75 - 400;
+                const y = this.floorY - 400;
                 this.secretBox = this.add.image(this.cameras.main.width + 70, y, 'boxsecret');
                 this.secretBox.originalY = y;
                 this.secretBox.time = 0;
@@ -475,44 +472,56 @@
                     return;
                 }
 
-                const goal = this.goals.getChildren().find(g => !g.pushing || (gameState.paused && g.pushing));
-                if (goal && event.key === goal.key) {
+                const goals = this.goals.getChildren().filter(g => !g.intercepted).sort((a, b) => a.x - b.x);
+                const nextGoal = goals[0];
+                if (nextGoal && event.key === nextGoal.key && !this.isIntercepting) {
+                    this.isIntercepting = true;
+                    nextGoal.intercepted = true; // Mark as intercepted
                     gameState.paused = false;
+                    const jumpHeight = 100;
+                    const duration = 500; // Total duration for the interception animation
+                    const targetX = this.characterX;
+                    const targetY = this.floorY - jumpHeight;
+
+                    // Tween the goal to the position above the character
+                    this.tweens.add({
+                        targets: nextGoal,
+                        x: targetX,
+                        y: targetY,
+                        duration: duration / 2,
+                        ease: 'Linear'
+                    });
+
+                    // Tween the character to jump up and back down
                     this.character.setTexture('eevee-jumping');
                     this.tweens.add({
                         targets: this.character,
-                        x: goal.x,
-                        y: goal.y,
-                        duration: 200,
+                        y: targetY,
+                        duration: duration / 2,
                         ease: 'Sine.easeOut',
-                        onComplete: () => {
-                            const actionSprite = Phaser.Math.Between(0, 2) === 0 ? 'eevee-punchone' : (Phaser.Math.Between(0, 1) ? 'eevee-kick' : 'eevee-punchtwo');
-                            this.character.setTexture(actionSprite);
+                        yoyo: true,
+                        onYoyo: () => {
+                            // Interception logic at the peak of the jump
                             this.sound.play('brick_break');
-                            goal.destroy();
-                            goal.text.destroy();
+                            nextGoal.destroy();
+                            nextGoal.text.destroy();
                             gameState.score += 10;
                             gameState.bonusMeter++;
                             gameState.keysTyped++;
                             gameState.wpm = Math.round(gameState.keysTyped / (gameState.totalTime / 60) || 0);
-                            this.tweens.add({
-                                targets: this.character,
-                                x: this.characterX,
-                                y: floorY,
-                                duration: 200,
-                                ease: 'Sine.easeIn',
-                                onComplete: () => {
-                                    this.time.delayedCall(1000, () => {
-                                        this.character.setTexture('eevee-walking').play('eevee-walking');
-                                        this.spawnGoal();
-                                        this.keyText.setText('');
-                                        this.highScoreButton.setVisible(false);
-                                    });
-                                }
-                            });
+                        },
+                        onComplete: () => {
+                            this.isIntercepting = false;
+                            this.character.setTexture('eevee-walking').play('eevee-walking');
+                            this.keyText.setText('');
+                            this.highScoreButton.setVisible(false);
+                            // Spawn a new goal if there are fewer than 2 on screen
+                            if (this.goals.getChildren().length < 2) {
+                                this.spawnGoal();
+                            }
                         }
                     });
-                } else if (!goal || event.key !== goal.key) {
+                } else if (!nextGoal || event.key !== nextGoal.key) {
                     if (!this.secretBox || (event.key !== 'e' && event.key !== 'v')) {
                         gameState.score = Math.max(0, gameState.score - 10);
                         gameState.missedKeys++;
