@@ -1,28 +1,3 @@
-// Phaser game configuration
-const config = {
-    type: Phaser.AUTO,
-    parent: 'game-container',
-    width: window.innerWidth,
-    height: window.innerHeight,
-    scene: [PreloadScene, StartScreenScene, MainGameScene, BossFightScene, BonusLevelScene, SecretLevelScene],
-    physics: {
-        default: 'arcade',
-        arcade: {
-            gravity: { y: 0 },
-            debug: false
-        }
-    },
-    audio: {
-        disableWebAudio: false
-    },
-    scale: {
-        mode: Phaser.Scale.RESIZE,
-        autoCenter: Phaser.Scale.CENTER_BOTH
-    }
-};
-
-const game = new Phaser.Game(config);
-
 // Global game state
 let gameState = {
     score: 0,
@@ -304,7 +279,7 @@ class MainGameScene extends Phaser.Scene {
 
         // Background and floor
         this.background = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'bg_grasslands').setOrigin(0);
-        const floorY = this.cameras.main.height * 0.75;
+        const floorY = this.cameras.main.width * 0.75;
         this.hudRect = this.add.rectangle(0, floorY, this.cameras.main.width, this.cameras.main.height / 4, 0x8B4513).setOrigin(0);
         const tileWidth = 64;
         this.floorTiles = this.add.group();
@@ -789,3 +764,29 @@ class SecretLevelScene extends Phaser.Scene {
         }
     }
 }
+
+// Phaser game configuration
+const config = {
+    type: Phaser.AUTO,
+    parent: 'game-container',
+    width: window.innerWidth,
+    height: window.innerHeight,
+    scene: [PreloadScene, StartScreenScene, MainGameScene, BossFightScene, BonusLevelScene, SecretLevelScene],
+    physics: {
+        default: 'arcade',
+        arcade: {
+            gravity: { y: 0 },
+            debug: false
+        }
+    },
+    audio: {
+        disableWebAudio: false
+    },
+    scale: {
+        mode: Phaser.Scale.RESIZE,
+        autoCenter: Phaser.Scale.CENTER_BOTH
+    }
+};
+
+// Create the game instance
+const game = new Phaser.Game(config);
