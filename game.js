@@ -58,12 +58,11 @@ class PreloadScene extends Phaser.Scene {
             percentText.destroy();
         });
 
-        // Log failed asset loads
         this.load.on('filecomplete', (key, type, success) => {
             if (!success) console.error(`Failed to load ${type} '${key}'`);
         });
 
-        // Load images
+        // Load assets
         this.load.image('bg_desert', 'assets/bg_desert.png');
         this.load.image('shroomleft', 'assets/shroomleft.png');
         this.load.image('shroommid', 'assets/shroommid.png');
@@ -98,7 +97,6 @@ class PreloadScene extends Phaser.Scene {
         this.load.image('enemyright', 'assets/enemyright.png');
         this.load.spritesheet('eevee-climbing', 'assets/eevee-climbing.png', { frameWidth: 64, frameHeight: 64 });
 
-        // Load audio (assuming .mp3 conversion from .mid)
         this.load.audio('wario', 'assets/wario.mp3');
         this.load.audio('smbflag', 'assets/smbflag.mp3');
         this.load.audio('tetris-1', 'assets/tetris-1.mp3');
@@ -108,16 +106,15 @@ class PreloadScene extends Phaser.Scene {
     }
 
     create() {
-        // Define animations
         this.anims.create({
             key: 'eevee-spin',
             frames: this.anims.generateFrameNumbers('eevee-spin', { start: 0, end: 5 }),
-            frameRate: 10,
+            frameRate: 1.2, // 6 frames over 5 seconds
             repeat: -1
         });
         this.anims.create({
             key: 'eevee-winning',
-            frames: this.anims.generateFrameNumbers('eevee-winning', { start: 0, end: 5 }),
+            frames: this.anims.generateFrameNumbers('eevee-winning', { start: 0, end: 5 }), // Adjust 'end' if fewer frames
             frameRate: 10,
             repeat: -1
         });
@@ -169,19 +166,21 @@ class StartScreenScene extends Phaser.Scene {
     }
 
     create() {
-        // Background
         this.add.image(0, 0, 'bg_desert').setOrigin(0, 0).setDisplaySize(this.cameras.main.width, this.cameras.main.height);
 
-        // Bottom assets (T5T / 123 / T4T)
-        const bottomY = this.cameras.main.height - 64;
-        this.add.image(64, bottomY, 'shroomstem'); // T4T
-        const capY = bottomY - 64;
-        this.add.image(0, capY, 'shroomleft'); // 1
-        this.add.image(64, capY, 'shroommid'); // 2
-        this.add.image(128, capY, 'shroomright'); // 3
-        this.eeveeSprite = this.add.sprite(64, capY - 64, 'eevee-spin').play('eevee-spin');
+        // Center bottom images horizontally (scaled 200%)
+        const bottomY = this.cameras.main.height - 128; // Adjusted for scale
+        const capY = bottomY - 128;
+        const totalWidth = 128 * 4; // 4 images at 128px each (64px * 2)
+        const startX = (this.cameras.main.width - totalWidth) / 2;
 
-        // Top assets (1222223)
+        this.add.image(startX + 64, bottomY, 'shroomstem').setScale(2);
+        this.add.image(startX, capY, 'shroomleft').setScale(2);
+        this.add.image(startX + 128, capY, 'shroommid').setScale(2);
+        this.add.image(startX + 256, capY, 'shroomright').setScale(2);
+        this.eeveeSprite = this.add.sprite(startX + 64, capY - 64, 'eevee-spin').setScale(2).play('eevee-spin');
+
+        // Top assets
         const topX = (this.cameras.main.width - 7 * 64) / 2;
         this.add.image(topX, 64, 'shroomleft');
         for (let i = 1; i < 6; i++) this.add.image(topX + i * 64, 64, 'shroommid');
@@ -194,17 +193,17 @@ class StartScreenScene extends Phaser.Scene {
             'No High Scores Yet';
         this.add.text(50, 50, highScoreText, { font: '24px monospace', fill: '#ffffff' });
 
-        // Start typing prompt
+        // Center "start typing" text
         const startString = "start typing";
         const fontStyle = { font: '32px monospace', fill: '#ffffff' };
         const charWidth = this.add.text(0, 0, 'A', fontStyle).width;
-        const totalWidth = charWidth * startString.length;
-        const startX = this.cameras.main.width - 50 - totalWidth;
-        const startY = this.cameras.main.height / 2 - 16;
+        const totalTextWidth = charWidth * startString.length;
+        const startXText = (this.cameras.main.width - totalTextWidth) / 2;
+        const startYText = this.cameras.main.height / 2;
         this.letters = [];
-        let x = startX;
+        let x = startXText;
         startString.split('').forEach(char => {
-            const letter = this.add.text(x, startY, char, fontStyle);
+            const letter = this.add.text(x, startYText, char, fontStyle);
             this.letters.push(letter);
             x += charWidth;
         });
@@ -217,11 +216,9 @@ class StartScreenScene extends Phaser.Scene {
             repeat: -1
         });
 
-        // Background music setup, but don't play yet
         this.backgroundMusic = this.sound.add('wario', { loop: true });
         this.musicStarted = false;
 
-        // Typing input
         this.typedIndex = 0;
         this.input.keyboard.on('keydown', (event) => {
             if (!this.musicStarted) {
@@ -265,7 +262,6 @@ class MainGameScene extends Phaser.Scene {
     }
 
     create() {
-        // Reset game state
         gameState.score = 0;
         gameState.level = 1;
         gameState.wpm = 0;
@@ -277,24 +273,22 @@ class MainGameScene extends Phaser.Scene {
         gameState.startTime = this.time.now;
         gameState.paused = false;
 
-        // Background and floor
         this.background = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'bg_grasslands').setOrigin(0);
-        const floorY = this.cameras.main.width * 0.75;
+        const floorY = this.cameras.main.height * 0.75;
         this.hudRect = this.add.rectangle(0, floorY, this.cameras.main.width, this.cameras.main.height / 4, 0x8B4513).setOrigin(0);
         const tileWidth = 64;
         this.floorTiles = this.add.group();
         for (let i = 0; i < Math.ceil(this.cameras.main.width / tileWidth); i++) {
-            this.floorTiles.create(i * tileWidth, floorY, 'grass').setOrigin(0);
+            const tile = this.floorTiles.create(i * tileWidth, floorY, 'grass').setOrigin(0);
+            tile.setDepth(1); // Ensure floor is visible
         }
 
-        // Clouds
         this.clouds = this.add.group();
         for (let i = 0; i < Phaser.Math.Between(2, 5); i++) {
             const cloud = `cloud${Phaser.Math.Between(1, 3)}`;
             this.clouds.create(Phaser.Math.Between(0, this.cameras.main.width), Phaser.Math.Between(0, floorY / 2), cloud);
         }
 
-        // Character
         this.characterX = this.cameras.main.width / 4;
         this.character = this.add.sprite(this.characterX, floorY, 'eevee-walking').setOrigin(0.5, 1).play('eevee-walking');
         this.tweens.add({
@@ -307,7 +301,6 @@ class MainGameScene extends Phaser.Scene {
             onComplete: () => this.character.play('eevee-walking')
         });
 
-        // HUD
         this.levelText = this.add.text(10, 10, `Level: ${gameState.level}`, { font: '24px monospace', fill: '#ffffff', backgroundColor: '#000000' });
         this.pauseButton = this.add.text(this.cameras.main.width - 100, 10, 'PAUSE', {
             font: `${this.cameras.main.height / 8}px monospace`,
@@ -327,31 +320,25 @@ class MainGameScene extends Phaser.Scene {
             backgroundColor: '#0000ff'
         }).setOrigin(1, 0).setInteractive().on('pointerdown', () => this.postHighScore()).setVisible(false);
 
-        // Goals
         this.goals = this.add.group();
         this.spawnGoal(true);
         this.time.delayedCall(1500, () => this.spawnGoal());
 
-        // Secret box timer
         this.secretBox = null;
 
-        // Music
         this.backgroundMusic = this.sound.add('tetris-1', { loop: true });
         this.backgroundMusic.play();
 
-        // Input
         this.input.keyboard.on('keydown', this.handleKeyPress, this);
     }
 
     update(time) {
         if (gameState.paused) return;
 
-        // Update timers
         gameState.totalTime = Math.floor((time - gameState.startTime) / 1000);
         gameState.secretTimer += this.time.delta / 1000;
         if (gameState.secretTimer >= 240 && !this.secretBox) this.spawnSecretBox();
 
-        // Move playfield left
         this.background.tilePositionX -= 2;
         this.floorTiles.getChildren().forEach(tile => tile.x -= 2);
         this.clouds.getChildren().forEach(cloud => cloud.x -= 2);
@@ -377,14 +364,12 @@ class MainGameScene extends Phaser.Scene {
             }
         }
 
-        // Update HUD
         this.timeText.setText(`Time: ${gameState.totalTime}s`);
         this.wpmText.setText(`WPM: ${gameState.wpm}`);
         this.missedText.setText(`Missed: ${gameState.missedKeys}`);
         this.scoreText.setText(String(gameState.score).padStart(7, '0'));
         this.bonusMeterFill.width = (gameState.bonusMeter / gameState.bonusMax) * 200;
 
-        // Check for boss or bonus
         if (gameState.score >= 5000 && gameState.score % 5000 === 0) this.scene.start('BossFightScene');
         if (gameState.bonusMeter >= gameState.bonusMax) this.scene.start('BonusLevelScene');
     }
@@ -425,6 +410,7 @@ class MainGameScene extends Phaser.Scene {
 
         const goal = this.goals.getChildren().find(g => g.pushing);
         if (goal && event.key === goal.key) {
+            console.log(`Correct key pressed: ${event.key}`); // Debug log
             this.character.setTexture('eevee-running').play('eevee-running');
             this.tweens.add({
                 targets: this.character,
@@ -433,7 +419,7 @@ class MainGameScene extends Phaser.Scene {
                 ease: 'Sine.easeOut',
                 onComplete: () => {
                     this.character.setTexture(Phaser.Math.Between(0, 1) ? 'eevee-kick' : 'eevee-punchtwo');
-                    this.sound.play('brick_break');
+                    if (this.sound.get('brick_break')) this.sound.play('brick_break'); // Check if sound exists
                     goal.destroy();
                     goal.text.destroy();
                     gameState.score += 10;
@@ -454,6 +440,7 @@ class MainGameScene extends Phaser.Scene {
                 }
             });
         } else if (!goal || event.key !== goal.key) {
+            console.log(`Incorrect key: ${event.key}, Expected: ${goal ? goal.key : 'none'}`); // Debug log
             gameState.score = Math.max(0, gameState.score - 10);
             gameState.missedKeys++;
             gameState.bonusMeter = Math.max(0, gameState.bonusMeter - 1);
@@ -497,7 +484,8 @@ class BossFightScene extends Phaser.Scene {
         const tileWidth = 64;
         this.floorTiles = this.add.group();
         for (let i = 0; i < Math.ceil(this.cameras.main.width / tileWidth); i++) {
-            this.floorTiles.create(i * tileWidth, floorY, 'grass').setOrigin(0);
+            const tile = this.floorTiles.create(i * tileWidth, floorY, 'grass').setOrigin(0);
+            tile.setDepth(1);
         }
 
         this.character = this.add.sprite(tileWidth * 3, floorY, 'eevee-standing').setOrigin(0.5, 1).play('eevee-standing');
@@ -614,7 +602,8 @@ class BonusLevelScene extends Phaser.Scene {
         const tileWidth = 64;
         this.floorTiles = this.add.group();
         for (let i = 0; i < Math.ceil(this.cameras.main.width / tileWidth); i++) {
-            this.floorTiles.create(i * tileWidth, floorY, 'grass').setOrigin(0);
+            const tile = this.floorTiles.create(i * tileWidth, floorY, 'grass').setOrigin(0);
+            tile.setDepth(1);
         }
 
         this.character = this.add.sprite(this.cameras.main.width / 2, floorY, 'eevee-climbing').setOrigin(0.5, 1).play('eevee-climbing');
@@ -711,7 +700,8 @@ class SecretLevelScene extends Phaser.Scene {
         const tileWidth = 64;
         this.floorTiles = this.add.group();
         for (let i = 0; i < Math.ceil(this.cameras.main.width / tileWidth); i++) {
-            this.floorTiles.create(i * tileWidth, floorY, 'grass').setOrigin(0);
+            const tile = this.floorTiles.create(i * tileWidth, floorY, 'grass').setOrigin(0);
+            tile.setDepth(1);
         }
 
         this.character = this.add.sprite(this.cameras.main.width / 4, floorY, 'eevee-walking').setOrigin(0.5, 1).play('eevee-walking');
@@ -749,7 +739,7 @@ class SecretLevelScene extends Phaser.Scene {
                 ease: 'Sine.easeOut',
                 yoyo: true,
                 onComplete: () => {
-                    this.sound.play('brick_break');
+                    if (this.sound.get('brick_break')) this.sound.play('brick_break');
                     goal.destroy();
                     goal.text.destroy();
                     gameState.score += 100;
@@ -765,28 +755,32 @@ class SecretLevelScene extends Phaser.Scene {
     }
 }
 
-// Phaser game configuration
-const config = {
-    type: Phaser.AUTO,
-    parent: 'game-container',
-    width: window.innerWidth,
-    height: window.innerHeight,
-    scene: [PreloadScene, StartScreenScene, MainGameScene, BossFightScene, BonusLevelScene, SecretLevelScene],
-    physics: {
-        default: 'arcade',
-        arcade: {
-            gravity: { y: 0 },
-            debug: false
+// Phaser game configuration and initialization
+function initializeGame() {
+    const config = {
+        type: Phaser.AUTO,
+        parent: 'game-container',
+        width: window.innerWidth,
+        height: window.innerHeight,
+        scene: [PreloadScene, StartScreenScene, MainGameScene, BossFightScene, BonusLevelScene, SecretLevelScene],
+        physics: {
+            default: 'arcade',
+            arcade: {
+                gravity: { y: 0 },
+                debug: false
+            }
+        },
+        audio: {
+            disableWebAudio: false
+        },
+        scale: {
+            mode: Phaser.Scale.RESIZE,
+            autoCenter: Phaser.Scale.CENTER_BOTH
         }
-    },
-    audio: {
-        disableWebAudio: false
-    },
-    scale: {
-        mode: Phaser.Scale.RESIZE,
-        autoCenter: Phaser.Scale.CENTER_BOTH
-    }
-};
+    };
 
-// Create the game instance
-const game = new Phaser.Game(config);
+    const game = new Phaser.Game(config);
+}
+
+// Ensure DOM is loaded before starting the game
+window.addEventListener('load', initializeGame);
