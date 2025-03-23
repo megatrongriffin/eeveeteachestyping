@@ -1,4 +1,4 @@
-// Utility function to shuffle arrays
+// Utility function to shuffle arrays
 function shuffle(array) {
     for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -887,9 +887,12 @@ class SecretLevelScene extends Phaser.Scene {
 
 // Phaser game configuration and initialization
 function initializeGame() {
+    const canvas = document.getElementById('gameCanvas');
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+
     const config = {
-        type: Phaser.AUTO,
-        parent: 'game-container',
+        type: Phaser.CANVAS,
+        canvas: canvas,
         width: window.innerWidth,
         height: window.innerHeight,
         scene: [PreloadScene, StartScreenScene, MainGameScene, BossFightScene, BonusLevelScene, SecretLevelScene],
