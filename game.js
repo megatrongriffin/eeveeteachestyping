@@ -28,7 +28,6 @@ class PreloadScene extends Phaser.Scene {
     }
 
     preload() {
-        // Progress bar setup
         let progressBar = this.add.graphics();
         let progressBox = this.add.graphics();
         progressBox.fillStyle(0x222222, 0.8);
@@ -62,7 +61,6 @@ class PreloadScene extends Phaser.Scene {
             if (!success) console.error(`Failed to load ${type} '${key}'`);
         });
 
-        // Load assets
         this.load.image('bg_desert', 'assets/bg_desert.png');
         this.load.image('shroomleft', 'assets/shroomleft.png');
         this.load.image('shroommid', 'assets/shroommid.png');
@@ -109,12 +107,12 @@ class PreloadScene extends Phaser.Scene {
         this.anims.create({
             key: 'eevee-spin',
             frames: this.anims.generateFrameNumbers('eevee-spin', { start: 0, end: 5 }),
-            frameRate: 1.2, // 6 frames over 5 seconds
+            frameRate: 10,
             repeat: -1
         });
         this.anims.create({
             key: 'eevee-winning',
-            frames: this.anims.generateFrameNumbers('eevee-winning', { start: 0, end: 5 }), // Adjust 'end' if fewer frames
+            frames: this.anims.generateFrameNumbers('eevee-winning', { start: 0, end: 5 }),
             frameRate: 10,
             repeat: -1
         });
@@ -168,42 +166,43 @@ class StartScreenScene extends Phaser.Scene {
     create() {
         this.add.image(0, 0, 'bg_desert').setOrigin(0, 0).setDisplaySize(this.cameras.main.width, this.cameras.main.height);
 
-        // Center bottom images horizontally (scaled 200%)
-        const bottomY = this.cameras.main.height - 128; // Adjusted for scale
-        const capY = bottomY - 128;
-        const totalWidth = 128 * 4; // 4 images at 128px each (64px * 2)
-        const startX = (this.cameras.main.width - totalWidth) / 2;
+        // Bottom layout: centered and touching
+        const bottomY = this.cameras.main.height - 64;
+        const centerX = this.cameras.main.width / 2;
+        this.add.image(centerX - 32, bottomY, 'shroomstem');
+        const capY = bottomY - 64;
+        this.add.image(centerX - 96, capY, 'shroomleft');
+        this.add.image(centerX - 32, capY, 'shroommid');
+        this.add.image(centerX + 32, capY, 'shroomright');
+        this.eeveeSprite = this.add.sprite(centerX - 32, capY - 128, 'eevee-spin').setScale(2).play('eevee-spin');
 
-        this.add.image(startX + 64, bottomY, 'shroomstem').setScale(2);
-        this.add.image(startX, capY, 'shroomleft').setScale(2);
-        this.add.image(startX + 128, capY, 'shroommid').setScale(2);
-        this.add.image(startX + 256, capY, 'shroomright').setScale(2);
-        this.eeveeSprite = this.add.sprite(startX + 64, capY - 64, 'eevee-spin').setScale(2).play('eevee-spin');
+        // Top images: scale to window width
+        const topScale = this.cameras.main.width / (7 * 64); // 7 tiles wide originally
+        const topY = 64;
+        this.add.image(0, topY, 'shroomleft').setScale(topScale, topScale).setOrigin(0, 0.5);
+        for (let i = 1; i < 6; i++) {
+            this.add.image(i * 64 * topScale, topY, 'shroommid').setScale(topScale, topScale).setOrigin(0, 0.5);
+        }
+        this.add.image(6 * 64 * topScale, topY, 'shroomright').setScale(topScale, topScale).setOrigin(0, 0.5);
+        this.add.text(this.cameras.main.width / 2, topY + 32, 'EEVEE TEACHES TYPING', { font: '48px monospace', fill: '#ffffff' }).setOrigin(0.5);
 
-        // Top assets
-        const topX = (this.cameras.main.width - 7 * 64) / 2;
-        this.add.image(topX, 64, 'shroomleft');
-        for (let i = 1; i < 6; i++) this.add.image(topX + i * 64, 64, 'shroommid');
-        this.add.image(topX + 6 * 64, 64, 'shroomright');
-        this.add.text(topX + 3.5 * 64, 96, 'EEVEE TEACHES TYPING', { font: '48px monospace', fill: '#ffffff' }).setOrigin(0.5);
-
-        // High scores
+        // High scores: middle left
         const highScoreText = gameState.highScores.length > 0 ?
             'High Scores:\n' + gameState.highScores.slice(0, 5).map((s, i) => `${i + 1}. ${s.name}: ${s.score}`).join('\n') :
             'No High Scores Yet';
-        this.add.text(50, 50, highScoreText, { font: '24px monospace', fill: '#ffffff' });
+        this.add.text(50, this.cameras.main.height / 2 - 50, highScoreText, { font: '24px monospace', fill: '#000000' });
 
-        // Center "start typing" text
+        // Start typing prompt
         const startString = "start typing";
-        const fontStyle = { font: '32px monospace', fill: '#ffffff' };
+        const fontStyle = { font: '32px monospace', fill: '#000000' };
         const charWidth = this.add.text(0, 0, 'A', fontStyle).width;
-        const totalTextWidth = charWidth * startString.length;
-        const startXText = (this.cameras.main.width - totalTextWidth) / 2;
-        const startYText = this.cameras.main.height / 2;
+        const totalWidth = charWidth * startString.length;
+        const startX = this.cameras.main.width - 50 - totalWidth;
+        const startY = this.cameras.main.height / 2 - 16;
         this.letters = [];
-        let x = startXText;
+        let x = startX;
         startString.split('').forEach(char => {
-            const letter = this.add.text(x, startYText, char, fontStyle);
+            const letter = this.add.text(x, startY, char, fontStyle);
             this.letters.push(letter);
             x += charWidth;
         });
@@ -276,12 +275,7 @@ class MainGameScene extends Phaser.Scene {
         this.background = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'bg_grasslands').setOrigin(0);
         const floorY = this.cameras.main.height * 0.75;
         this.hudRect = this.add.rectangle(0, floorY, this.cameras.main.width, this.cameras.main.height / 4, 0x8B4513).setOrigin(0);
-        const tileWidth = 64;
-        this.floorTiles = this.add.group();
-        for (let i = 0; i < Math.ceil(this.cameras.main.width / tileWidth); i++) {
-            const tile = this.floorTiles.create(i * tileWidth, floorY, 'grass').setOrigin(0);
-            tile.setDepth(1); // Ensure floor is visible
-        }
+        this.floorTiles = this.add.tileSprite(0, floorY, this.cameras.main.width, 64, 'grass').setOrigin(0, 0);
 
         this.clouds = this.add.group();
         for (let i = 0; i < Phaser.Math.Between(2, 5); i++) {
@@ -290,7 +284,7 @@ class MainGameScene extends Phaser.Scene {
         }
 
         this.characterX = this.cameras.main.width / 4;
-        this.character = this.add.sprite(this.characterX, floorY, 'eevee-walking').setOrigin(0.5, 1).play('eevee-walking');
+        this.character = this.add.sprite(this.characterX, floorY, 'eevee-walking').setOrigin(0.5, 1).setScale(2).play('eevee-walking');
         this.tweens.add({
             targets: this.character,
             x: this.characterX,
@@ -301,22 +295,22 @@ class MainGameScene extends Phaser.Scene {
             onComplete: () => this.character.play('eevee-walking')
         });
 
-        this.levelText = this.add.text(10, 10, `Level: ${gameState.level}`, { font: '24px monospace', fill: '#ffffff', backgroundColor: '#000000' });
+        this.levelText = this.add.text(10, 10, `Level: ${gameState.level}`, { font: '24px monospace', fill: '#000000' });
         this.pauseButton = this.add.text(this.cameras.main.width - 100, 10, 'PAUSE', {
             font: `${this.cameras.main.height / 8}px monospace`,
-            fill: '#ffffff',
+            fill: '#000000',
             backgroundColor: '#ff0000'
         }).setOrigin(1, 0).setInteractive().on('pointerdown', () => this.togglePause());
-        this.timeText = this.add.text(10, floorY + 10, 'Time: 0s', { font: '24px monospace', fill: '#ffffff' });
-        this.wpmText = this.add.text(10, floorY + 40, 'WPM: 0', { font: '24px monospace', fill: '#ffffff' });
-        this.missedText = this.add.text(10, floorY + 70, 'Missed: 0', { font: '24px monospace', fill: '#ffffff' });
-        this.scoreText = this.add.text(this.cameras.main.width / 2, floorY + 50, '0000000', { font: '48px monospace', fill: '#ffffff' }).setOrigin(0.5);
-        this.keyText = this.add.text(this.cameras.main.width - 100, floorY + 10, '', { font: '24px monospace', fill: '#ffffff' }).setOrigin(1, 0);
+        this.timeText = this.add.text(10, floorY + 10, 'Time: 0s', { font: '24px monospace', fill: '#000000' });
+        this.wpmText = this.add.text(10, floorY + 40, 'WPM: 0', { font: '24px monospace', fill: '#000000' });
+        this.missedText = this.add.text(10, floorY + 70, 'Missed: 0', { font: '24px monospace', fill: '#000000' });
+        this.scoreText = this.add.text(this.cameras.main.width / 2, floorY + 50, '0000000', { font: '48px monospace', fill: '#000000' }).setOrigin(0.5);
+        this.keyText = this.add.text(this.cameras.main.width - 100, floorY + 10, '', { font: '24px monospace', fill: '#000000' }).setOrigin(1, 0);
         this.bonusMeterBg = this.add.rectangle(this.cameras.main.width / 2 - 100, 20, 200, 20, 0xff0000);
         this.bonusMeterFill = this.add.rectangle(this.cameras.main.width / 2 - 100, 20, 0, 20, 0xffff00).setOrigin(0);
         this.highScoreButton = this.add.text(this.cameras.main.width - 100, 100, 'Post High Score', {
             font: '24px monospace',
-            fill: '#ffffff',
+            fill: '#000000',
             backgroundColor: '#0000ff'
         }).setOrigin(1, 0).setInteractive().on('pointerdown', () => this.postHighScore()).setVisible(false);
 
@@ -340,7 +334,7 @@ class MainGameScene extends Phaser.Scene {
         if (gameState.secretTimer >= 240 && !this.secretBox) this.spawnSecretBox();
 
         this.background.tilePositionX -= 2;
-        this.floorTiles.getChildren().forEach(tile => tile.x -= 2);
+        this.floorTiles.tilePositionX -= 2;
         this.clouds.getChildren().forEach(cloud => cloud.x -= 2);
         this.goals.getChildren().forEach(goal => {
             goal.x -= 2;
@@ -353,6 +347,7 @@ class MainGameScene extends Phaser.Scene {
                 this.character.x = goal.x;
             } else if (goal.x <= 0) {
                 this.highScoreButton.setVisible(true);
+                gameState.paused = true;
             }
         });
         if (this.secretBox) {
@@ -377,11 +372,12 @@ class MainGameScene extends Phaser.Scene {
     spawnGoal(initial = false) {
         const keys = '1234567890abcdefghijklmnopqrstuvwxyz!@#$%^&*()_+-=[]{}|;:,.<>?'.split('');
         const key = keys[Phaser.Math.Between(0, keys.length - 1)];
-        const yPositions = [this.cameras.main.height * 0.75, this.cameras.main.height * 0.625, this.cameras.main.height / 2];
+        const floorY = this.cameras.main.height * 0.75;
+        const yPositions = [floorY - 100, floorY - 200, floorY - 300];
         const y = yPositions[Phaser.Math.Between(0, 2)];
         const scale = Phaser.Math.FloatBetween(0.9, 1.1);
         const goal = this.goals.create(this.cameras.main.width + 70, y, 'boxEmpty').setScale(scale);
-        goal.text = this.add.text(goal.x, goal.y, key, { font: `${Math.floor(70 * scale * 5 / 8)}px monospace`, fill: '#ffffff' }).setOrigin(0.5);
+        goal.text = this.add.text(goal.x, goal.y, key, { font: `${Math.floor(70 * scale * 5 / 8)}px monospace`, fill: '#000000' }).setOrigin(0.5);
         goal.key = key;
         goal.pushing = false;
         if (!initial) this.keyText.setText(`Key: ${key}`);
@@ -400,6 +396,8 @@ class MainGameScene extends Phaser.Scene {
     }
 
     handleKeyPress(event) {
+        if (event.key === 'Shift') return; // Ignore Shift key alone
+
         if (event.key === 'eevee' && this.secretBox) {
             this.scene.start('SecretLevelScene');
             this.secretBox.destroy();
@@ -408,9 +406,9 @@ class MainGameScene extends Phaser.Scene {
             return;
         }
 
-        const goal = this.goals.getChildren().find(g => g.pushing);
+        const goal = this.goals.getChildren().find(g => !g.pushing);
         if (goal && event.key === goal.key) {
-            console.log(`Correct key pressed: ${event.key}`); // Debug log
+            gameState.paused = false;
             this.character.setTexture('eevee-running').play('eevee-running');
             this.tweens.add({
                 targets: this.character,
@@ -419,7 +417,7 @@ class MainGameScene extends Phaser.Scene {
                 ease: 'Sine.easeOut',
                 onComplete: () => {
                     this.character.setTexture(Phaser.Math.Between(0, 1) ? 'eevee-kick' : 'eevee-punchtwo');
-                    if (this.sound.get('brick_break')) this.sound.play('brick_break'); // Check if sound exists
+                    this.sound.play('brick_break');
                     goal.destroy();
                     goal.text.destroy();
                     gameState.score += 10;
@@ -440,7 +438,6 @@ class MainGameScene extends Phaser.Scene {
                 }
             });
         } else if (!goal || event.key !== goal.key) {
-            console.log(`Incorrect key: ${event.key}, Expected: ${goal ? goal.key : 'none'}`); // Debug log
             gameState.score = Math.max(0, gameState.score - 10);
             gameState.missedKeys++;
             gameState.bonusMeter = Math.max(0, gameState.bonusMeter - 1);
@@ -481,14 +478,9 @@ class BossFightScene extends Phaser.Scene {
         this.background = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'bg_castle').setOrigin(0);
         const floorY = this.cameras.main.height * 0.75;
         this.hudRect = this.add.rectangle(0, floorY, this.cameras.main.width, this.cameras.main.height / 4, 0x8B4513).setOrigin(0);
-        const tileWidth = 64;
-        this.floorTiles = this.add.group();
-        for (let i = 0; i < Math.ceil(this.cameras.main.width / tileWidth); i++) {
-            const tile = this.floorTiles.create(i * tileWidth, floorY, 'grass').setOrigin(0);
-            tile.setDepth(1);
-        }
+        this.floorTiles = this.add.tileSprite(0, floorY, this.cameras.main.width, 64, 'grass').setOrigin(0, 0);
 
-        this.character = this.add.sprite(tileWidth * 3, floorY, 'eevee-standing').setOrigin(0.5, 1).play('eevee-standing');
+        this.character = this.add.sprite(64 * 3, floorY, 'eevee-standing').setOrigin(0.5, 1).setScale(2).play('eevee-standing');
 
         this.boss = this.add.sprite(this.cameras.main.width - 100, this.cameras.main.height / 2, 'flyFly1').setScale(2);
         this.boss.health = 100;
@@ -533,7 +525,7 @@ class BossFightScene extends Phaser.Scene {
         if (!this.currentWord) {
             const word = this.words[Phaser.Math.Between(0, this.words.length - 1)];
             this.currentWord = this.add.rectangle(this.boss.x, this.boss.y, 10, 10, 0x000000, 0);
-            this.wordText = this.add.text(this.boss.x, this.boss.y, word, { font: '18px monospace', fill: '#ffffff' }).setOrigin(0.5);
+            this.wordText = this.add.text(this.boss.x, this.boss.y, word, { font: '18px monospace', fill: '#000000' }).setOrigin(0.5);
             this.currentWord.word = word;
             this.wordIndex = 0;
         }
@@ -599,14 +591,9 @@ class BonusLevelScene extends Phaser.Scene {
         this.background = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'bg_desert').setOrigin(0);
         const floorY = this.cameras.main.height * 0.75;
         this.hudRect = this.add.rectangle(0, floorY, this.cameras.main.width, this.cameras.main.height / 4, 0x8B4513).setOrigin(0);
-        const tileWidth = 64;
-        this.floorTiles = this.add.group();
-        for (let i = 0; i < Math.ceil(this.cameras.main.width / tileWidth); i++) {
-            const tile = this.floorTiles.create(i * tileWidth, floorY, 'grass').setOrigin(0);
-            tile.setDepth(1);
-        }
+        this.floorTiles = this.add.tileSprite(0, floorY, this.cameras.main.width, 64, 'grass').setOrigin(0, 0);
 
-        this.character = this.add.sprite(this.cameras.main.width / 2, floorY, 'eevee-climbing').setOrigin(0.5, 1).play('eevee-climbing');
+        this.character = this.add.sprite(this.cameras.main.width / 2, floorY, 'eevee-climbing').setOrigin(0.5, 1).setScale(2).play('eevee-climbing');
 
         const objects = [
             { key: 'bush', label: 'bush', x: this.cameras.main.width / 4, y: floorY - 100 },
@@ -633,7 +620,7 @@ class BonusLevelScene extends Phaser.Scene {
                     duration: 2000,
                     onComplete: () => {
                         this.enemy.setTexture(this.objects[step].image.x < this.cameras.main.width / 2 ? 'enemyright' : 'enemyright').setFlipX(this.objects[step].image.x > this.cameras.main.width / 2);
-                        const wordText = this.add.text(this.enemy.x, this.enemy.y, word, { font: '18px monospace', fill: '#ffffff' }).setOrigin(0.5);
+                        const wordText = this.add.text(this.enemy.x, this.enemy.y, word, { font: '18px monospace', fill: '#000000' }).setOrigin(0.5);
                         this.tweens.add({
                             targets: [this.enemy, wordText],
                             x: this.objects[step].image.x,
@@ -655,15 +642,15 @@ class BonusLevelScene extends Phaser.Scene {
         const correct = this.hiddenWords[Phaser.Math.Between(0, 3)];
         this.question = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2 - 50, `Which object hid "${correct.word}"?`, {
             font: '24px monospace',
-            fill: '#ffffff'
+            fill: '#000000'
         }).setOrigin(0.5);
         this.inputField = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, '', {
             font: '24px monospace',
-            fill: '#ffffff',
+            fill: '#000000',
             backgroundColor: 'rgba(0,0,0,0.5)'
         }).setOrigin(0.5);
         this.add.rectangle(this.cameras.main.width / 2, this.cameras.main.height / 2, 200, 40, 0x000000, 0).setStrokeStyle(2, 0xffffff);
-        this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2 + 30, '<press enter>', { font: '18px monospace', fill: '#ffffff' }).setOrigin(0.5);
+        this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2 + 30, '<press enter>', { font: '18px monospace', fill: '#000000' }).setOrigin(0.5);
 
         let inputText = '';
         this.input.keyboard.on('keydown', (event) => {
@@ -697,20 +684,15 @@ class SecretLevelScene extends Phaser.Scene {
         this.background = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'bg_shroom').setOrigin(0);
         const floorY = this.cameras.main.height * 0.75;
         this.hudRect = this.add.rectangle(0, floorY, this.cameras.main.width, this.cameras.main.height / 4, 0x8B4513).setOrigin(0);
-        const tileWidth = 64;
-        this.floorTiles = this.add.group();
-        for (let i = 0; i < Math.ceil(this.cameras.main.width / tileWidth); i++) {
-            const tile = this.floorTiles.create(i * tileWidth, floorY, 'grass').setOrigin(0);
-            tile.setDepth(1);
-        }
+        this.floorTiles = this.add.tileSprite(0, floorY, this.cameras.main.width, 64, 'grass').setOrigin(0, 0);
 
-        this.character = this.add.sprite(this.cameras.main.width / 4, floorY, 'eevee-walking').setOrigin(0.5, 1).play('eevee-walking');
+        this.character = this.add.sprite(this.cameras.main.width / 4, floorY, 'eevee-walking').setOrigin(0.5, 1).setScale(2).play('eevee-walking');
 
         const sentence = 'eeveeeeveeeeveeeeveeeeveeeeveeeeveeeevee';
         this.goals = this.add.group();
         sentence.split('').forEach((char, i) => {
             const goal = this.goals.create(this.cameras.main.width + i * 70, floorY, 'boxEmpty');
-            goal.text = this.add.text(goal.x, goal.y, char, { font: '43px monospace', fill: '#ffffff' }).setOrigin(0.5);
+            goal.text = this.add.text(goal.x, goal.y, char, { font: '43px monospace', fill: '#000000' }).setOrigin(0.5);
             goal.key = char;
             goal.index = i;
         });
@@ -721,7 +703,7 @@ class SecretLevelScene extends Phaser.Scene {
 
     update() {
         this.background.tilePositionX -= 2;
-        this.floorTiles.getChildren().forEach(tile => tile.x -= 2);
+        this.floorTiles.tilePositionX -= 2;
         this.goals.getChildren().forEach(goal => {
             goal.x -= 2;
             goal.text.x = goal.x;
@@ -739,7 +721,7 @@ class SecretLevelScene extends Phaser.Scene {
                 ease: 'Sine.easeOut',
                 yoyo: true,
                 onComplete: () => {
-                    if (this.sound.get('brick_break')) this.sound.play('brick_break');
+                    this.sound.play('brick_break');
                     goal.destroy();
                     goal.text.destroy();
                     gameState.score += 100;
@@ -780,6 +762,11 @@ function initializeGame() {
     };
 
     const game = new Phaser.Game(config);
+
+    // Dynamic resize listener
+    window.addEventListener('resize', () => {
+        game.scale.resize(window.innerWidth, window.innerHeight);
+    });
 }
 
 // Ensure DOM is loaded before starting the game
