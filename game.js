@@ -1,3 +1,18 @@
+// Utility function to shuffle arrays
+function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
+
+// Function to check if all digits are the same
+function allDigitsSame(number) {
+    const str = number.toString();
+    return str.split('').every(char => char === str[0]);
+}
+
 // Global game state
 let gameState = {
     score: 0,
@@ -28,6 +43,9 @@ class PreloadScene extends Phaser.Scene {
     }
 
     preload() {
+        // Load Google Fonts WebFont loader
+        this.load.script('webfont', 'https://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js');
+
         let progressBar = this.add.graphics();
         let progressBox = this.add.graphics();
         progressBox.fillStyle(0x222222, 0.8);
@@ -78,6 +96,7 @@ class PreloadScene extends Phaser.Scene {
         this.load.spritesheet('eevee-running', 'assets/eevee-running.png', { frameWidth: 64, frameHeight: 64 });
         this.load.image('eevee-kick', 'assets/eevee-kick.png');
         this.load.image('eevee-punchtwo', 'assets/eevee-punchtwo.png');
+        this.load.image('eevee-punchone', 'assets/eevee-punchone.png');
         this.load.image('eevee-jumping', 'assets/eevee-jumping.png');
         this.load.spritesheet('eevee-walking', 'assets/eevee-walking.png', { frameWidth: 64, frameHeight: 64 });
         this.load.image('bg_castle', 'assets/bg_castle.png');
@@ -104,6 +123,16 @@ class PreloadScene extends Phaser.Scene {
     }
 
     create() {
+        // Load "Press Start 2P" font from Google Fonts after WebFont script is loaded
+        WebFont.load({
+            google: {
+                families: ['Press Start 2P']
+            },
+            active: () => {
+                this.scene.start('StartScreenScene');
+            }
+        });
+
         this.anims.create({
             key: 'eevee-spin',
             frames: this.anims.generateFrameNumbers('eevee-spin', { start: 0, end: 5 }),
@@ -152,8 +181,6 @@ class PreloadScene extends Phaser.Scene {
             frameRate: 5,
             repeat: -1
         });
-
-        this.scene.start('StartScreenScene');
     }
 }
 
@@ -166,7 +193,6 @@ class StartScreenScene extends Phaser.Scene {
     create() {
         this.add.image(0, 0, 'bg_desert').setOrigin(0, 0).setDisplaySize(this.cameras.main.width, this.cameras.main.height);
 
-        // Bottom layout: centered and touching
         const bottomY = this.cameras.main.height - 64;
         const centerX = this.cameras.main.width / 2;
         this.add.image(centerX - 32, bottomY, 'shroomstem');
@@ -174,37 +200,34 @@ class StartScreenScene extends Phaser.Scene {
         this.add.image(centerX - 96, capY, 'shroomleft');
         this.add.image(centerX - 32, capY, 'shroommid');
         this.add.image(centerX + 32, capY, 'shroomright');
-        this.eeveeSprite = this.add.sprite(centerX - 32, capY - 128, 'eevee-spin').setScale(2).play('eevee-spin');
+        const eeveeScale = (this.cameras.main.width / 3) / 64;
+        this.eeveeSprite = this.add.sprite(centerX, capY - 128, 'eevee-spin').setScale(eeveeScale).play('eevee-spin');
 
-        // Top images: scale to window width
-        const topScale = this.cameras.main.width / (7 * 64); // 7 tiles wide originally
+        const topScale = this.cameras.main.width / (7 * 64);
         const topY = 64;
         this.add.image(0, topY, 'shroomleft').setScale(topScale, topScale).setOrigin(0, 0.5);
         for (let i = 1; i < 6; i++) {
             this.add.image(i * 64 * topScale, topY, 'shroommid').setScale(topScale, topScale).setOrigin(0, 0.5);
         }
         this.add.image(6 * 64 * topScale, topY, 'shroomright').setScale(topScale, topScale).setOrigin(0, 0.5);
-        this.add.text(this.cameras.main.width / 2, topY + 32, 'EEVEE TEACHES TYPING', { font: '48px monospace', fill: '#ffffff' }).setOrigin(0.5);
+        this.add.text(this.cameras.main.width / 2, topY + 32, 'EEVEE TEACHES TYPING', { font: '48px "Press Start 2P"', fill: '#ffffff' }).setOrigin(0.5);
 
-        // High scores: middle left
         const highScoreText = gameState.highScores.length > 0 ?
             'High Scores:\n' + gameState.highScores.slice(0, 5).map((s, i) => `${i + 1}. ${s.name}: ${s.score}`).join('\n') :
             'No High Scores Yet';
-        this.add.text(50, this.cameras.main.height / 2 - 50, highScoreText, { font: '24px monospace', fill: '#000000' });
+        this.add.text(50, this.cameras.main.height / 2 - 50, highScoreText, { font: '24px "Press Start 2P"', fill: '#000000' });
 
-        // Start typing prompt
         const startString = "start typing";
-        const fontStyle = { font: '32px monospace', fill: '#000000' };
-        const charWidth = this.add.text(0, 0, 'A', fontStyle).width;
-        const totalWidth = charWidth * startString.length;
-        const startX = this.cameras.main.width - 50 - totalWidth;
-        const startY = this.cameras.main.height / 2 - 16;
+        const fontStyle = { font: '48px "Press Start 2P"', fill: '#000000' };
+        const totalWidth = this.cameras.main.width * 0.6;
+        const charSpacing = totalWidth / (startString.length - 1);
+        const startX = (this.cameras.main.width - totalWidth) / 2;
+        const startY = this.cameras.main.height / 2;
         this.letters = [];
-        let x = startX;
-        startString.split('').forEach(char => {
-            const letter = this.add.text(x, startY, char, fontStyle);
+        startString.split('').forEach((char, i) => {
+            const x = startX + i * charSpacing;
+            const letter = this.add.text(x, startY, char, fontStyle).setOrigin(0.5);
             this.letters.push(letter);
-            x += charWidth;
         });
         this.startContainer = this.add.container(0, 0, this.letters);
         this.tweens.add({
@@ -216,14 +239,11 @@ class StartScreenScene extends Phaser.Scene {
         });
 
         this.backgroundMusic = this.sound.add('wario', { loop: true });
-        this.musicStarted = false;
+        this.backgroundMusic.play();
+        this.musicStarted = true;
 
         this.typedIndex = 0;
         this.input.keyboard.on('keydown', (event) => {
-            if (!this.musicStarted) {
-                this.backgroundMusic.play();
-                this.musicStarted = true;
-            }
             if (this.typedIndex < startString.length && event.key === startString[this.typedIndex]) {
                 this.letters[this.typedIndex].setFill('#00ff00');
                 this.typedIndex++;
@@ -249,7 +269,7 @@ class StartScreenScene extends Phaser.Scene {
             x: this.cameras.main.width + 100,
             duration: 1000,
             ease: 'Linear',
-            onComplete: () => this.scene.start('MainGameScene')
+            onComplete: () => this.scene.start('MainGameScene', { newGame: true })
         });
     }
 }
@@ -260,16 +280,18 @@ class MainGameScene extends Phaser.Scene {
         super({ key: 'MainGameScene' });
     }
 
-    create() {
-        gameState.score = 0;
-        gameState.level = 1;
-        gameState.wpm = 0;
-        gameState.missedKeys = 0;
-        gameState.totalTime = 0;
-        gameState.bonusMeter = 0;
-        gameState.secretTimer = 0;
-        gameState.keysTyped = 0;
-        gameState.startTime = this.time.now;
+    create(data) {
+        if (data.newGame) {
+            gameState.score = 0;
+            gameState.level = 1;
+            gameState.wpm = 0;
+            gameState.missedKeys = 0;
+            gameState.totalTime = 0;
+            gameState.bonusMeter = 0;
+            gameState.secretTimer = 0;
+            gameState.keysTyped = 0;
+            gameState.startTime = this.time.now;
+        }
         gameState.paused = false;
 
         this.background = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'bg_grasslands').setOrigin(0);
@@ -295,30 +317,34 @@ class MainGameScene extends Phaser.Scene {
             onComplete: () => this.character.play('eevee-walking')
         });
 
-        this.levelText = this.add.text(10, 10, `Level: ${gameState.level}`, { font: '24px monospace', fill: '#000000' });
+        this.levelText = this.add.text(10, 10, `Level: ${gameState.level}`, { font: '24px "Press Start 2P"', fill: '#000000' });
         this.pauseButton = this.add.text(this.cameras.main.width - 100, 10, 'PAUSE', {
-            font: `${this.cameras.main.height / 8}px monospace`,
+            font: `${this.cameras.main.height / 8}px "Press Start 2P"`,
             fill: '#000000',
             backgroundColor: '#ff0000'
         }).setOrigin(1, 0).setInteractive().on('pointerdown', () => this.togglePause());
-        this.timeText = this.add.text(10, floorY + 10, 'Time: 0s', { font: '24px monospace', fill: '#000000' });
-        this.wpmText = this.add.text(10, floorY + 40, 'WPM: 0', { font: '24px monospace', fill: '#000000' });
-        this.missedText = this.add.text(10, floorY + 70, 'Missed: 0', { font: '24px monospace', fill: '#000000' });
-        this.scoreText = this.add.text(this.cameras.main.width / 2, floorY + 50, '0000000', { font: '48px monospace', fill: '#000000' }).setOrigin(0.5);
-        this.keyText = this.add.text(this.cameras.main.width - 100, floorY + 10, '', { font: '24px monospace', fill: '#000000' }).setOrigin(1, 0);
-        this.bonusMeterBg = this.add.rectangle(this.cameras.main.width / 2 - 100, 20, 200, 20, 0xff0000);
-        this.bonusMeterFill = this.add.rectangle(this.cameras.main.width / 2 - 100, 20, 0, 20, 0xffff00).setOrigin(0);
+        this.timeText = this.add.text(10, floorY + 10, 'Time: 0s', { font: '24px "Press Start 2P"', fill: '#000000' });
+        this.wpmText = this.add.text(10, floorY + 40, 'WPM: 0', { font: '24px "Press Start 2P"', fill: '#000000' });
+        this.missedText = this.add.text(10, floorY + 70, 'Missed: 0', { font: '24px "Press Start 2P"', fill: '#000000' });
+        this.scoreText = this.add.text(this.cameras.main.width / 2, floorY + 50, '0000000', { font: '48px "Press Start 2P"', fill: '#000000' }).setOrigin(0.5);
+        this.keyText = this.add.text(this.cameras.main.width - 100, floorY + 10, '', { font: '24px "Press Start 2P"', fill: '#000000' }).setOrigin(1, 0);
+        this.bonusMeterBg = this.add.rectangle(this.cameras.main.width / 2 - 100, 20, 204, 24, 0x000000).setOrigin(0);
+        this.bonusMeterRed = this.add.rectangle(this.cameras.main.width / 2 - 100 + 2, 20 + 2, 200, 20, 0xff0000).setOrigin(0);
+        this.bonusMeterFill = this.add.rectangle(this.cameras.main.width / 2 - 100 + 2, 20 + 2, 0, 20, 0xffff00).setOrigin(0);
+        this.bonusMeterText = this.add.text(this.cameras.main.width / 2, 22, 'BONUS', { font: '24px "Press Start 2P"', fill: '#ff0000' }).setOrigin(0.5);
         this.highScoreButton = this.add.text(this.cameras.main.width - 100, 100, 'Post High Score', {
-            font: '24px monospace',
+            font: '24px "Press Start 2P"',
             fill: '#000000',
             backgroundColor: '#0000ff'
         }).setOrigin(1, 0).setInteractive().on('pointerdown', () => this.postHighScore()).setVisible(false);
+        this.nextGoalsText = this.add.text(10, floorY + 100, '', { font: '40px "Press Start 2P"', fill: '#000000' });
 
         this.goals = this.add.group();
         this.spawnGoal(true);
         this.time.delayedCall(1500, () => this.spawnGoal());
 
         this.secretBox = null;
+        this.typedSequence = '';
 
         this.backgroundMusic = this.sound.add('tetris-1', { loop: true });
         this.backgroundMusic.play();
@@ -331,23 +357,29 @@ class MainGameScene extends Phaser.Scene {
 
         gameState.totalTime = Math.floor((time - gameState.startTime) / 1000);
         gameState.secretTimer += this.time.delta / 1000;
-        if (gameState.secretTimer >= 240 && !this.secretBox) this.spawnSecretBox();
+
+        if (allDigitsSame(gameState.totalTime) && !this.secretBox) this.spawnSecretBox();
 
         this.background.tilePositionX -= 2;
         this.floorTiles.tilePositionX -= 2;
         this.clouds.getChildren().forEach(cloud => cloud.x -= 2);
+        const minX = 64;
         this.goals.getChildren().forEach(goal => {
-            goal.x -= 2;
-            goal.text.x = goal.x;
+            if (!goal.pushing || goal.x > minX) {
+                goal.x -= 2;
+                goal.text.x = goal.x;
+            }
             if (goal.x <= this.characterX && !goal.pushing) {
                 goal.pushing = true;
                 this.character.setTexture('eevee-standing');
             }
-            if (goal.pushing && goal.x > 0) {
+            if (goal.pushing && goal.x > minX) {
                 this.character.x = goal.x;
-            } else if (goal.x <= 0) {
-                this.highScoreButton.setVisible(true);
+            } else if (goal.pushing && goal.x <= minX) {
+                this.character.x = minX;
                 gameState.paused = true;
+                this.highScoreButton.setVisible(true);
+                this.highScoreButton.y = this.pauseButton.y + this.pauseButton.height + 10;
             }
         });
         if (this.secretBox) {
@@ -355,7 +387,6 @@ class MainGameScene extends Phaser.Scene {
             if (this.secretBox.x < -70) {
                 this.secretBox.destroy();
                 this.secretBox = null;
-                gameState.secretTimer = 0;
             }
         }
 
@@ -364,8 +395,11 @@ class MainGameScene extends Phaser.Scene {
         this.missedText.setText(`Missed: ${gameState.missedKeys}`);
         this.scoreText.setText(String(gameState.score).padStart(7, '0'));
         this.bonusMeterFill.width = (gameState.bonusMeter / gameState.bonusMax) * 200;
+        const onScreenGoals = this.goals.getChildren().filter(g => g.x < this.cameras.main.width);
+        const nextGoals = onScreenGoals.slice(0, 2).map(g => g.key).join(' ');
+        this.nextGoalsText.setText(`Next: ${nextGoals}`);
 
-        if (gameState.score >= 5000 && gameState.score % 5000 === 0) this.scene.start('BossFightScene');
+        if (gameState.score >= 1500 && gameState.score % 1500 === 0) this.scene.start('BossFightScene');
         if (gameState.bonusMeter >= gameState.bonusMax) this.scene.start('BonusLevelScene');
     }
 
@@ -384,39 +418,40 @@ class MainGameScene extends Phaser.Scene {
     }
 
     spawnSecretBox() {
-        const y = Phaser.Math.Between(this.cameras.main.height / 4, this.cameras.main.height * 0.75);
+        const y = this.cameras.main.height * 0.75 - 400;
         this.secretBox = this.add.image(this.cameras.main.width + 70, y, 'boxsecret');
         this.time.delayedCall(5000, () => {
             if (this.secretBox) {
                 this.secretBox.destroy();
                 this.secretBox = null;
-                gameState.secretTimer = 0;
             }
         });
     }
 
     handleKeyPress(event) {
-        if (event.key === 'Shift') return; // Ignore Shift key alone
+        if (event.key === 'Shift') return;
 
-        if (event.key === 'eevee' && this.secretBox) {
+        this.typedSequence += event.key;
+        if (this.typedSequence.endsWith('eevee') && this.secretBox) {
             this.scene.start('SecretLevelScene');
             this.secretBox.destroy();
             this.secretBox = null;
-            gameState.secretTimer = 0;
+            this.typedSequence = '';
             return;
         }
 
-        const goal = this.goals.getChildren().find(g => !g.pushing);
+        const goal = this.goals.getChildren().find(g => !g.pushing || (gameState.paused && g.pushing));
         if (goal && event.key === goal.key) {
             gameState.paused = false;
-            this.character.setTexture('eevee-running').play('eevee-running');
             this.tweens.add({
-                targets: this.character,
-                y: goal.y,
+                targets: goal,
+                x: this.character.x,
+                y: this.character.y,
                 duration: 200,
                 ease: 'Sine.easeOut',
                 onComplete: () => {
-                    this.character.setTexture(Phaser.Math.Between(0, 1) ? 'eevee-kick' : 'eevee-punchtwo');
+                    const actionSprite = Phaser.Math.Between(0, 2) === 0 ? 'eevee-punchone' : (Phaser.Math.Between(0, 1) ? 'eevee-kick' : 'eevee-punchtwo');
+                    this.character.setTexture(actionSprite);
                     this.sound.play('brick_break');
                     goal.destroy();
                     goal.text.destroy();
@@ -424,17 +459,12 @@ class MainGameScene extends Phaser.Scene {
                     gameState.bonusMeter++;
                     gameState.keysTyped++;
                     gameState.wpm = Math.round(gameState.keysTyped / (gameState.totalTime / 60) || 0);
-                    this.character.setTexture('eevee-walking').play('eevee-walking');
-                    this.tweens.add({
-                        targets: this.character,
-                        x: this.characterX,
-                        y: this.cameras.main.height * 0.75,
-                        duration: 200,
-                        ease: 'Sine.easeOut'
+                    this.time.delayedCall(500, () => {
+                        this.character.setTexture('eevee-walking').play('eevee-walking');
+                        this.spawnGoal();
+                        this.keyText.setText('');
+                        this.highScoreButton.setVisible(false);
                     });
-                    this.spawnGoal();
-                    this.keyText.setText('');
-                    this.highScoreButton.setVisible(false);
                 }
             });
         } else if (!goal || event.key !== goal.key) {
@@ -449,9 +479,12 @@ class MainGameScene extends Phaser.Scene {
         if (gameState.paused) {
             this.character.setTexture('eevee-standing').play('eevee-standing');
             this.backgroundMusic.pause();
+            this.highScoreButton.setVisible(true);
+            this.highScoreButton.y = this.pauseButton.y + this.pauseButton.height + 10;
         } else {
             this.character.setTexture('eevee-walking').play('eevee-walking');
             this.backgroundMusic.resume();
+            this.highScoreButton.setVisible(false);
         }
     }
 
@@ -475,6 +508,34 @@ class BossFightScene extends Phaser.Scene {
     }
 
     create() {
+        const bossText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 'BOSS FLYGHT', {
+            font: '96px "Press Start 2P"',
+            fill: '#ff0000'
+        }).setOrigin(0.5).setScale(0.01);
+
+        this.tweens.add({
+            targets: bossText,
+            scale: 1,
+            duration: 1000,
+            ease: 'Sine.easeInOut',
+            onStart: () => bossText.setFill('#ff0000'),
+            onComplete: () => {
+                bossText.setFill('#ffff00');
+                this.tweens.add({
+                    targets: bossText,
+                    scale: 0.01,
+                    duration: 1000,
+                    ease: 'Sine.easeInOut',
+                    onComplete: () => {
+                        bossText.destroy();
+                        this.createBossLevel();
+                    }
+                });
+            }
+        });
+    }
+
+    createBossLevel() {
         this.background = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'bg_castle').setOrigin(0);
         const floorY = this.cameras.main.height * 0.75;
         this.hudRect = this.add.rectangle(0, floorY, this.cameras.main.width, this.cameras.main.height / 4, 0x8B4513).setOrigin(0);
@@ -525,7 +586,7 @@ class BossFightScene extends Phaser.Scene {
         if (!this.currentWord) {
             const word = this.words[Phaser.Math.Between(0, this.words.length - 1)];
             this.currentWord = this.add.rectangle(this.boss.x, this.boss.y, 10, 10, 0x000000, 0);
-            this.wordText = this.add.text(this.boss.x, this.boss.y, word, { font: '18px monospace', fill: '#000000' }).setOrigin(0.5);
+            this.wordText = this.add.text(this.boss.x, this.boss.y, word, { font: '18px "Press Start 2P"', fill: '#000000' }).setOrigin(0.5);
             this.currentWord.word = word;
             this.wordIndex = 0;
         }
@@ -574,7 +635,7 @@ class BossFightScene extends Phaser.Scene {
                 });
                 this.time.delayedCall(5000, () => {
                     gameState.level++;
-                    this.scene.start('MainGameScene');
+                    this.scene.start('MainGameScene', { newGame: false });
                 });
             }
         });
@@ -588,6 +649,34 @@ class BonusLevelScene extends Phaser.Scene {
     }
 
     create() {
+        const bonusText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 'BONUS', {
+            font: '96px "Press Start 2P"',
+            fill: '#ff0000'
+        }).setOrigin(0.5).setScale(0.01);
+
+        this.tweens.add({
+            targets: bonusText,
+            scale: 1,
+            duration: 1000,
+            ease: 'Sine.easeInOut',
+            onStart: () => bonusText.setFill('#ff0000'),
+            onComplete: () => {
+                bonusText.setFill('#ffff00');
+                this.tweens.add({
+                    targets: bonusText,
+                    scale: 0.01,
+                    duration: 1000,
+                    ease: 'Sine.easeInOut',
+                    onComplete: () => {
+                        bonusText.destroy();
+                        this.createBonusLevel();
+                    }
+                });
+            }
+        });
+    }
+
+    createBonusLevel() {
         this.background = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'bg_desert').setOrigin(0);
         const floorY = this.cameras.main.height * 0.75;
         this.hudRect = this.add.rectangle(0, floorY, this.cameras.main.width, this.cameras.main.height / 4, 0x8B4513).setOrigin(0);
@@ -603,33 +692,64 @@ class BonusLevelScene extends Phaser.Scene {
         ];
         this.objects = objects.map(obj => ({
             image: this.add.image(obj.x, obj.y, obj.key).setScale(1.5),
-            label: this.add.text(obj.x, obj.y + 30, obj.label, { font: '18px monospace', fill: '#000000' }).setOrigin(0.5),
+            label: this.add.text(obj.x, obj.y + 30, obj.label, { font: '18px "Press Start 2P"', fill: '#000000' }).setOrigin(0.5),
             name: obj.label
         }));
 
-        const words = ['Bee', 'Skunk', 'Flower', 'Dog'];
-        this.hiddenWords = [];
         this.enemy = this.add.sprite(this.cameras.main.width / 2, 0, 'enemy');
-        let step = 0;
+        this.tweens.add({
+            targets: this.enemy,
+            y: this.cameras.main.height / 2,
+            duration: 2000,
+            ease: 'Bounce.easeOut',
+            onComplete: () => {
+                this.time.delayedCall(1000, () => this.enemy.setTexture('enemyright').setFlipX(true));
+                this.time.delayedCall(2000, () => this.enemy.setTexture('enemyright').setFlipX(false));
+                this.time.delayedCall(3000, () => {
+                    this.enemy.setTexture('enemy');
+                    this.startHidingWords();
+                });
+            }
+        });
+
+        this.hiddenWords = [];
+    }
+
+    startHidingWords() {
+        const words = ['Bee', 'Skunk', 'Flower', 'Dog'];
+        const order = shuffle([0, 1, 2, 3]);
+        const centerX = this.cameras.main.width / 2;
         words.forEach((word, i) => {
             this.time.delayedCall(i * 5000, () => {
+                const objIndex = order[i];
                 this.enemy.setTexture('enemy');
                 this.tweens.add({
                     targets: this.enemy,
-                    y: this.objects[step].image.y - 50,
+                    x: centerX,
+                    y: this.objects[objIndex].image.y,
                     duration: 2000,
                     onComplete: () => {
-                        this.enemy.setTexture(this.objects[step].image.x < this.cameras.main.width / 2 ? 'enemyright' : 'enemyright').setFlipX(this.objects[step].image.x > this.cameras.main.width / 2);
-                        const wordText = this.add.text(this.enemy.x, this.enemy.y, word, { font: '18px monospace', fill: '#000000' }).setOrigin(0.5);
+                        this.enemy.setTexture(this.objects[objIndex].image.x < centerX ? 'enemyright' : 'enemyright').setFlipX(this.objects[objIndex].image.x > centerX);
+                        const wordText = this.add.text(this.enemy.x, this.enemy.y - 30, word, {
+                            font: '24px "Press Start 2P"',
+                            fill: '#ffffff',
+                            stroke: '#000000',
+                            strokeThickness: 3
+                        }).setOrigin(0.5);
                         this.tweens.add({
-                            targets: [this.enemy, wordText],
-                            x: this.objects[step].image.x,
+                            targets: this.enemy,
+                            x: this.objects[objIndex].image.x,
+                            duration: 3000
+                        });
+                        this.tweens.add({
+                            targets: wordText,
+                            x: this.objects[objIndex].image.x,
+                            y: this.objects[objIndex].image.y - 30,
                             duration: 3000,
                             onComplete: () => {
                                 wordText.destroy();
-                                this.hiddenWords.push({ word, object: this.objects[step].name });
-                                step++;
-                                if (step === 4) this.showInput();
+                                this.hiddenWords.push({ word, object: this.objects[objIndex].name });
+                                if (i === 3) this.showInput();
                             }
                         });
                     }
@@ -641,16 +761,16 @@ class BonusLevelScene extends Phaser.Scene {
     showInput() {
         const correct = this.hiddenWords[Phaser.Math.Between(0, 3)];
         this.question = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2 - 50, `Which object hid "${correct.word}"?`, {
-            font: '24px monospace',
+            font: '24px "Press Start 2P"',
             fill: '#000000'
         }).setOrigin(0.5);
         this.inputField = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, '', {
-            font: '24px monospace',
+            font: '24px "Press Start 2P"',
             fill: '#000000',
             backgroundColor: 'rgba(0,0,0,0.5)'
         }).setOrigin(0.5);
         this.add.rectangle(this.cameras.main.width / 2, this.cameras.main.height / 2, 200, 40, 0x000000, 0).setStrokeStyle(2, 0xffffff);
-        this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2 + 30, '<press enter>', { font: '18px monospace', fill: '#000000' }).setOrigin(0.5);
+        this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2 + 30, '<press enter>', { font: '18px "Press Start 2P"', fill: '#000000' }).setOrigin(0.5);
 
         let inputText = '';
         this.input.keyboard.on('keydown', (event) => {
@@ -662,7 +782,7 @@ class BonusLevelScene extends Phaser.Scene {
                     this.sound.play('smbdeath');
                 }
                 gameState.bonusMeter = 0;
-                this.scene.start('MainGameScene');
+                this.scene.start('MainGameScene', { newGame: false });
             } else if (event.key.length === 1 && inputText.length < 7) {
                 inputText += event.key;
                 this.inputField.setText(inputText);
@@ -681,6 +801,34 @@ class SecretLevelScene extends Phaser.Scene {
     }
 
     create() {
+        const secretText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 'EEEVEEE', {
+            font: '96px "Press Start 2P"',
+            fill: '#ff0000'
+        }).setOrigin(0.5).setScale(0.01);
+
+        this.tweens.add({
+            targets: secretText,
+            scale: 1,
+            duration: 1000,
+            ease: 'Sine.easeInOut',
+            onStart: () => secretText.setFill('#ff0000'),
+            onComplete: () => {
+                secretText.setFill('#ffff00');
+                this.tweens.add({
+                    targets: secretText,
+                    scale: 0.01,
+                    duration: 1000,
+                    ease: 'Sine.easeInOut',
+                    onComplete: () => {
+                        secretText.destroy();
+                        this.createSecretLevel();
+                    }
+                });
+            }
+        });
+    }
+
+    createSecretLevel() {
         this.background = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'bg_shroom').setOrigin(0);
         const floorY = this.cameras.main.height * 0.75;
         this.hudRect = this.add.rectangle(0, floorY, this.cameras.main.width, this.cameras.main.height / 4, 0x8B4513).setOrigin(0);
@@ -729,7 +877,7 @@ class SecretLevelScene extends Phaser.Scene {
                     this.currentIndex++;
                     if (this.currentIndex === this.goals.getChildren().length) {
                         gameState.level++;
-                        this.scene.start('MainGameScene');
+                        this.scene.start('MainGameScene', { newGame: false });
                     }
                 }
             });
@@ -763,11 +911,9 @@ function initializeGame() {
 
     const game = new Phaser.Game(config);
 
-    // Dynamic resize listener
     window.addEventListener('resize', () => {
         game.scale.resize(window.innerWidth, window.innerHeight);
     });
 }
 
-// Ensure DOM is loaded before starting the game
 window.addEventListener('load', initializeGame);
