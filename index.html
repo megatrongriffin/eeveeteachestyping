@@ -172,7 +172,7 @@
                 this.anims.create({
                     key: 'eevee-spin',
                     frames: this.anims.generateFrameNumbers('eevee-spin', { start: 0, end: 5 }),
-                    duration: 9000,
+                    duration: 7000, // Speed up to 7 seconds
                     repeat: -1
                 });
                 this.anims.create({
@@ -227,38 +227,45 @@
             }
 
             create() {
+                const centerX = this.cameras.main.width / 2;
+                const floorY = this.cameras.main.height * 0.75;
+
                 this.add.image(0, 0, 'bg_desert').setOrigin(0, 0).setDisplaySize(this.cameras.main.width, this.cameras.main.height);
 
-                const totalShroomHeight = (2 / 3) * this.cameras.main.height;
-                const s = totalShroomHeight / 128;
-                const stemY = this.cameras.main.height - 64 * s;
-                const capY = stemY - 64 * s; // No gap between stem and cap
-                const centerX = this.cameras.main.width / 2;
-                const stemX = centerX - 32 * s;
-                const leftCapX = centerX - 96 * s;
-                const midCapX = centerX - 32 * s;
-                const rightCapX = centerX + 32 * s;
+                // Add four clouds with one asset used twice
+                const cloudKeys = ['cloud1', 'cloud2', 'cloud3'];
+                const doubleCloud = cloudKeys[Phaser.Math.Between(0, 2)];
+                const clouds = [...cloudKeys, doubleCloud];
+                shuffle(clouds);
+                clouds.forEach((cloudKey) => {
+                    const x = Phaser.Math.Between(0, this.cameras.main.width);
+                    const y = Phaser.Math.Between(0, floorY);
+                    const scale = Phaser.Math.FloatBetween(0.5, 1.5);
+                    this.add.image(x, y, cloudKey).setScale(scale).setDepth(0);
+                });
 
-                // Bottom shroom images
-                this.add.image(stemX, stemY, 'shroomstem').setScale(s).setOrigin(0, 0);
-                this.add.image(leftCapX, capY, 'shroomleft').setScale(s).setOrigin(0, 0);
-                this.add.image(midCapX, capY, 'shroommid').setScale(s).setOrigin(0, 0);
-                this.add.image(rightCapX, capY, 'shroomright').setScale(s).setOrigin(0, 0);
-
-                // Top shroom images meshed with stem
-                const topY = capY + 32 * s; // Lowered to mesh with bottom shroom caps
-                const topScale = this.cameras.main.width / (7 * 64);
-                this.add.image(0, topY, 'shroomleft').setScale(topScale).setOrigin(0, 0.5);
-                for (let i = 1; i < 6; i++) {
-                    this.add.image(i * 64 * topScale, topY, 'shroommid').setScale(topScale).setOrigin(0, 0.5);
+                // Widest shroom row at the bottom
+                const n = 7;
+                const s = this.cameras.main.width / (n * 64);
+                this.add.image(0, floorY, 'shroomleft').setScale(s).setOrigin(0, 0);
+                for (let i = 1; i < n - 1; i++) {
+                    this.add.image(i * 64 * s, floorY, 'shroommid').setScale(s).setOrigin(0, 0);
                 }
-                this.add.image(6 * 64 * topScale, topY, 'shroomright').setScale(topScale).setOrigin(0, 0.5);
+                this.add.image((n - 1) * 64 * s, floorY, 'shroomright').setScale(s).setOrigin(0, 0);
 
-                // Title on top of all images
-                this.add.text(centerX, topY, 'EEVEE TEACHES TYPING', { font: '48px "Press Start 2P"', fill: '#ffffff' }).setOrigin(0.5).setDepth(1);
+                // Smaller shroom row above
+                const s_small = s * 0.7;
+                const rowY = floorY - 100;
+                this.add.image(centerX - 64 * s_small, rowY, 'shroomleft').setScale(s_small).setOrigin(0, 0);
+                this.add.image(centerX, rowY, 'shroommid').setScale(s_small).setOrigin(0, 0);
+                this.add.image(centerX + 64 * s_small, rowY, 'shroomright').setScale(s_small).setOrigin(0, 0);
 
+                // Eevee standing on the widest row
                 const eeveeScale = (this.cameras.main.width / 3) / 64;
-                this.eeveeSprite = this.add.sprite(centerX, capY - 128, 'eevee-spin').setScale(eeveeScale).play('eevee-spin');
+                this.eeveeSprite = this.add.sprite(centerX, floorY, 'eevee-spin').setScale(eeveeScale).setOrigin(0.5, 1).play('eevee-spin');
+
+                // Title on top of the widest row
+                this.add.text(centerX, floorY - 50, 'EEVEE TEACHES TYPING', { font: '48px "Press Start 2P"', fill: '#ffffff' }).setOrigin(0.5).setDepth(1);
 
                 const highScoreText = gameState.highScores.length > 0 ?
                     'High Scores:\n' + gameState.highScores.slice(0, 5).map((s, i) => `${i + 1}. ${s.name}: ${s.score} (WPM: ${s.wpm})`).join('\n') :
@@ -365,29 +372,29 @@
                     onComplete: () => this.character.play('eevee-walking')
                 });
 
-                this.levelText = this.add.text(10, 10, `Level: ${gameState.level}`, { font: '24px "Press Start 2P"', fill: '#000000' });
+                this.levelText = this.add.text(10, 10, `Level: ${gameState.level}`, { font: '32px "Press Start 2P"', fill: '#000000' });
                 this.pauseButton = this.add.text(this.cameras.main.width - 100, 10, 'PAUSE', {
-                    font: `${this.cameras.main.height / 8}px "Press Start 2P"`,
+                    font: '24px "Press Start 2P"',
                     fill: '#000000',
                     backgroundColor: '#ff0000'
                 }).setOrigin(1, 0).setInteractive().on('pointerdown', () => this.togglePause());
-                this.timeText = this.add.text(10, this.floorY + 20, 'Time: 0s', { font: '24px "Press Start 2P"', fill: '#000000' });
-                this.wpmText = this.add.text(10, this.floorY + 50, 'WPM: 0', { font: '24px "Press Start 2P"', fill: '#000000' });
-                this.missedText = this.add.text(10, this.floorY + 80, 'Missed: 0', { font: '24px "Press Start 2P"', fill: '#000000' });
-                this.scoreText = this.add.text(this.cameras.main.width / 2, this.floorY + 120, '0000000', { font: '48px "Press Start 2P"', fill: '#000000' }).setOrigin(0.5);
-                this.keyText = this.add.text(this.cameras.main.width - 100, this.floorY + 20, '', { font: '24px "Press Start 2P"', fill: '#000000' }).setOrigin(1, 0);
+                this.timeText = this.add.text(10, this.floorY + 20, 'Time: 0s', { font: '32px "Press Start 2P"', fill: '#000000' });
+                this.wpmText = this.add.text(10, this.floorY + 60, 'WPM: 0', { font: '32px "Press Start 2P"', fill: '#000000' });
+                this.missedText = this.add.text(10, this.floorY + 100, 'Missed: 0', { font: '32px "Press Start 2P"', fill: '#000000' });
+                this.scoreText = this.add.text(this.cameras.main.width / 2, this.floorY + 50, '0000000', { font: '64px "Press Start 2P"', fill: '#000000' }).setOrigin(0.5);
+                this.keyText = this.add.text(this.cameras.main.width - 100, this.floorY + 20, '', { font: '32px "Press Start 2P"', fill: '#000000' }).setOrigin(1, 0);
                 const meterY = 20;
                 const meterHeight = 24;
-                this.bonusMeterBg = this.add.rectangle(this.cameras.main.width / 2 - 102, meterY, 204, meterHeight, 0x000000);
-                this.bonusMeterRed = this.add.rectangle(this.cameras.main.width / 2 - 100, meterY + 2, 200, meterHeight - 4, 0xff0000);
-                this.bonusMeterFill = this.add.rectangle(this.cameras.main.width / 2 - 100, meterY + 2, 0, meterHeight - 4, 0xffff00);
+                this.bonusMeterBg = this.add.rectangle(this.cameras.main.width / 2, meterY + meterHeight / 2, 204, meterHeight, 0x000000).setOrigin(0.5).setStrokeStyle(4, 0xffffff);
+                this.bonusMeterRed = this.add.rectangle(this.cameras.main.width / 2 - 100, meterY + 2, 200, meterHeight - 4, 0xff0000).setOrigin(0, 0);
+                this.bonusMeterFill = this.add.rectangle(this.cameras.main.width / 2 - 100, meterY + 2, 0, meterHeight - 4, 0xffff00).setOrigin(0, 0);
                 this.bonusMeterText = this.add.text(this.cameras.main.width / 2, meterY + meterHeight / 2, 'BONUS', { font: '24px "Press Start 2P"', fill: '#ff0000' }).setOrigin(0.5);
                 this.highScoreButton = this.add.text(this.cameras.main.width - 100, 100, 'Post High Score', {
                     font: '24px "Press Start 2P"',
                     fill: '#000000',
                     backgroundColor: '#0000ff'
                 }).setOrigin(1, 0).setInteractive().on('pointerdown', () => this.postHighScore()).setVisible(false);
-                this.nextGoalsText = this.add.text(10, this.floorY + 110, '', { font: '40px "Press Start 2P"', fill: '#000000' });
+                this.nextGoalsText = this.add.text(10, this.floorY + 140, '', { font: '48px "Press Start 2P"', fill: '#000000' });
 
                 this.goals = this.add.group();
                 for (let i = 0; i < 4; i++) {
@@ -396,10 +403,6 @@
 
                 this.secretBox = null;
                 this.typedSequence = '';
-                this.stoppedGoals = [];
-                this.currentGoal = null;
-                this.goalsStopped = false;
-                this.speedBoost = 1;
                 this.attackImages = ['eevee-kick', 'eevee-punchone', 'eevee-punchtwo'];
 
                 this.backgroundMusic = this.sound.add('tetris-1', { loop: true });
@@ -422,22 +425,9 @@
                 this.floorTiles.tilePositionX -= 2;
                 this.clouds.getChildren().forEach(cloud => cloud.x -= 2);
 
-                const onScreenGoals = this.goals.getChildren().filter(g => !g.intercepted);
-                if (onScreenGoals.length > 0) {
-                    const nearestGoal = onScreenGoals.reduce((min, g) => g.x < min.x ? g : min, onScreenGoals[0]);
-                    if (nearestGoal.x <= this.characterX) {
-                        this.goalsStopped = true;
-                        if (!this.currentGoal) this.currentGoal = nearestGoal;
-                    } else {
-                        this.goalsStopped = false;
-                    }
-                } else {
-                    this.goalsStopped = false;
-                }
-
                 this.goals.getChildren().forEach(goal => {
-                    if (!this.goalsStopped && !goal.intercepted) {
-                        goal.x -= 2 * this.speedBoost;
+                    if (!goal.intercepted) {
+                        goal.x -= 2;
                         goal.text.x = goal.x;
                     }
                 });
@@ -445,7 +435,7 @@
                 if (this.secretBox) {
                     this.secretBox.time += this.time.delta / 1000;
                     this.secretBox.y = this.secretBox.originalY + 20 * Math.sin(this.secretBox.time * Math.PI * 2);
-                    this.secretBox.x -= 10; // Faster movement
+                    this.secretBox.x -= 10;
                     if (this.secretBox.x < -70) {
                         this.secretBox.destroy();
                         this.secretBox = null;
@@ -457,6 +447,7 @@
                 this.missedText.setText(`Missed: ${gameState.missedKeys}`);
                 this.scoreText.setText(String(gameState.score).padStart(7, '0'));
                 this.bonusMeterFill.width = (gameState.bonusMeter / gameState.bonusMax) * 200;
+                const onScreenGoals = this.goals.getChildren().filter(g => !g.intercepted);
                 const nextGoals = onScreenGoals.slice(0, 2).map(g => g.key).join(' ');
                 this.nextGoalsText.setText(`Next: ${nextGoals}`);
 
@@ -474,7 +465,6 @@
                 goal.text = this.add.text(goal.x, goal.y, key, { font: `${Math.floor(70 * scale * 5 / 8)}px monospace`, fill: '#000000' }).setOrigin(0.5);
                 goal.key = key;
                 goal.intercepted = false;
-                this.keyText.setText(`Key: ${key}`);
             }
 
             spawnSecretBox() {
@@ -499,67 +489,57 @@
                     return;
                 }
 
-                if (this.currentGoal && event.key === this.currentGoal.key && !this.isIntercepting) {
+                const matchingGoal = this.goals.getChildren().find(g => !g.intercepted && g.key === event.key);
+                if (matchingGoal && !this.isIntercepting) {
                     this.isIntercepting = true;
-                    this.currentGoal.intercepted = true;
-                    const randomAttack = this.attackImages[Phaser.Math.Between(0, this.attackImages.length - 1)];
-                    this.character.setTexture(randomAttack);
-                    const duration = 500;
-                    const targetX = this.characterX;
-                    const targetY = this.character.y;
-
+                    matchingGoal.intercepted = true;
+                    this.character.setTexture('eevee-jumping');
                     this.tweens.add({
-                        targets: this.currentGoal,
-                        x: targetX,
-                        y: targetY,
-                        duration: duration / 2,
+                        targets: this.character,
+                        y: matchingGoal.y - 50,
+                        duration: 300,
+                        ease: 'Sine.easeOut',
+                        onComplete: () => {
+                            const randomAttack = this.attackImages[Phaser.Math.Between(0, this.attackImages.length - 1)];
+                            this.character.setTexture(randomAttack);
+                        }
+                    });
+                    this.time.delayedCall(1500, () => {
+                        this.tweens.add({
+                            targets: this.character,
+                            y: this.floorY,
+                            duration: 300,
+                            ease: 'Sine.easeIn',
+                            onComplete: () => this.character.setTexture('eevee-walking').play('eevee-walking')
+                        });
+                    });
+                    this.tweens.add({
+                        targets: matchingGoal,
+                        x: this.characterX,
+                        y: matchingGoal.y,
+                        duration: 500,
                         ease: 'Linear',
                         onComplete: () => {
                             this.tweens.add({
-                                targets: [this.currentGoal, this.currentGoal.text],
+                                targets: [matchingGoal, matchingGoal.text],
                                 scale: 0,
                                 duration: 200,
                                 onComplete: () => {
                                     this.sound.play('brick_break');
-                                    this.currentGoal.destroy();
-                                    this.currentGoal.text.destroy();
+                                    matchingGoal.destroy();
+                                    matchingGoal.text.destroy();
                                     gameState.score += 10;
                                     gameState.bonusMeter++;
                                     gameState.keysTyped++;
                                     gameState.wpm = Math.round(gameState.keysTyped / (gameState.totalTime / 60) || 0);
                                     gameState.maxWPM = Math.max(gameState.maxWPM, gameState.wpm);
-                                    this.speedBoost = 2;
-                                    this.time.delayedCall(1000, () => {
-                                        this.speedBoost = 1;
-                                    });
-                                    this.goalsStopped = false;
                                     this.isIntercepting = false;
-                                    this.character.setTexture('eevee-walking').play('eevee-walking');
-                                    this.keyText.setText('');
-                                    this.highScoreButton.setVisible(false);
-                                    this.stoppedGoals = this.stoppedGoals.filter(g => g !== this.currentGoal);
-                                    this.currentGoal = null;
-                                    const remainingGoals = this.goals.getChildren().filter(g => !g.intercepted);
-                                    if (remainingGoals.length > 0) {
-                                        const nextGoal = remainingGoals.reduce((min, g) => g.x < min.x ? g : min, remainingGoals[0]);
-                                        this.tweens.add({
-                                            targets: nextGoal,
-                                            x: this.characterX,
-                                            duration: 300,
-                                            ease: 'Linear',
-                                            onComplete: () => {
-                                                this.currentGoal = nextGoal;
-                                            }
-                                        });
-                                    }
-                                    if (this.goals.getChildren().length < 4) {
-                                        this.spawnGoal();
-                                    }
+                                    this.spawnGoal();
                                 }
                             });
                         }
                     });
-                } else if (!this.currentGoal || event.key !== this.currentGoal.key) {
+                } else if (!matchingGoal) {
                     if (!this.secretBox || (event.key !== 'e' && event.key !== 'v')) {
                         gameState.score = Math.max(0, gameState.score - 10);
                         gameState.missedKeys++;
@@ -823,7 +803,7 @@
                 ];
                 this.objects = objects.map(obj => ({
                     image: this.add.image(obj.x, obj.y, obj.key).setScale(1.5),
-                    label: this.add.text(obj.x, obj.y + 30, obj.label, { font: '18px "Press Start 2P"', fill: '#000000' }).setOrigin(0.5),
+                    label: this.add.text(obj.x, obj.y + 30, obj.label, { font: '24px "Press Start 2P"', fill: '#000000' }).setOrigin(0.5),
                     name: obj.label
                 }));
 
@@ -867,18 +847,21 @@
                                     stroke: '#000000',
                                     strokeThickness: 3
                                 }).setOrigin(0.5);
+                                const bounds = wordText.getBounds();
+                                const bgRect = this.add.rectangle(wordText.x, wordText.y, bounds.width + 10, bounds.height + 10, 0x000000).setOrigin(0.5);
                                 this.tweens.add({
                                     targets: this.enemy,
                                     x: this.objects[objIndex].image.x,
                                     duration: 3000
                                 });
                                 this.tweens.add({
-                                    targets: wordText,
+                                    targets: [bgRect, wordText],
                                     x: this.objects[objIndex].image.x,
                                     y: this.objects[objIndex].image.y - 30,
                                     duration: 3000,
                                     onComplete: () => {
                                         wordText.destroy();
+                                        bgRect.destroy();
                                         this.hiddenWords.push({ word, object: this.objects[objIndex].name });
                                         if (i === 3) this.showInput();
                                     }
@@ -906,14 +889,16 @@
                 let inputText = '';
                 this.input.keyboard.on('keydown', (event) => {
                     if (event.key === 'Enter' && ['bush', 'boulder', 'tree', 'cloud'].includes(inputText)) {
-                        if (inputText === correct.object) {
+                        const isCorrect = inputText === correct.object;
+                        if (isCorrect) {
                             this.sound.play('smbflag');
                             gameState.score += 5000;
                         } else {
                             this.sound.play('smbdeath');
                         }
                         gameState.bonusMeter = 0;
-                        this.scene.start('MainGameScene', { newGame: false });
+                        this.showFeedback(isCorrect);
+                        this.time.delayedCall(2000, () => this.scene.start('MainGameScene', { newGame: false }));
                     } else if (event.key.length === 1 && inputText.length < 7) {
                         inputText += event.key;
                         this.inputField.setText(inputText);
@@ -921,6 +906,40 @@
                         inputText = inputText.slice(0, -1);
                         this.inputField.setText(inputText);
                     }
+                });
+            }
+
+            showFeedback(isCorrect) {
+                const text = isCorrect ? 'CORRECT' : 'INCORRECT';
+                const color = isCorrect ? '#00ff00' : '#ff0000';
+                const feedbackText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, text, {
+                    font: '96px "Press Start 2P"',
+                    fill: color
+                }).setOrigin(0.5).setScale(0.01);
+                this.tweens.add({
+                    targets: feedbackText,
+                    scale: 1,
+                    duration: 1000,
+                    ease: 'Sine.easeInOut',
+                    onComplete: () => {
+                        this.tweens.add({
+                            targets: feedbackText,
+                            scale: 0.01,
+                            duration: 1000,
+                            ease: 'Sine.easeInOut',
+                            onComplete: () => feedbackText.destroy()
+                        });
+                    }
+                });
+                const flashColors = isCorrect ? ['#00ff00', '#ffff00'] : ['#ff0000', '#ffff00'];
+                this.tweens.timeline({
+                    targets: feedbackText,
+                    loop: 3,
+                    tweens: [
+                        { fill: flashColors[1], duration: 250 },
+                        { fill: flashColors[0], duration: 250 }
+                    ],
+                    onComplete: () => feedbackText.setFill(flashColors[0])
                 });
             }
         }
