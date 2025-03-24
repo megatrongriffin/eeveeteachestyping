@@ -389,9 +389,10 @@
                 this.bonusMeterRed = this.add.rectangle(this.cameras.main.width / 2 - 100, meterY + 2, 200, meterHeight - 4, 0xff0000).setOrigin(0, 0);
                 this.bonusMeterFill = this.add.rectangle(this.cameras.main.width / 2 - 100, meterY + 2, 0, meterHeight - 4, 0xffff00).setOrigin(0, 0);
                 this.bonusMeterText = this.add.text(this.cameras.main.width / 2, meterY + meterHeight / 2, 'BONUS', { font: '24px "Press Start 2P"', fill: '#ff0000' }).setOrigin(0.5);
+                this.secretIcon = this.add.image(this.cameras.main.width / 2 + 110, meterY + meterHeight / 2, 'boxsecret').setScale(0.5).setVisible(false);
                 this.highScoreButton = this.add.text(this.cameras.main.width - 100, 100, 'Post High Score', {
                     font: '24px "Press Start 2P"',
-                    fill: '#000000',
+                    fill: '#ffffff', // Changed to white
                     backgroundColor: '#0000ff'
                 }).setOrigin(1, 0).setInteractive().on('pointerdown', () => this.postHighScore()).setVisible(false);
                 this.nextGoalsText = this.add.text(10, this.floorY + 140, '', { font: '48px "Press Start 2P"', fill: '#000000' });
@@ -441,6 +442,8 @@
                         this.secretBox = null;
                     }
                 }
+
+                this.secretIcon.setVisible(!!this.secretBox);
 
                 this.timeText.setText(`Time: ${gameState.totalTime}s`);
                 this.wpmText.setText(`WPM: ${gameState.wpm}`);
@@ -493,25 +496,26 @@
                 if (matchingGoal && !this.isIntercepting) {
                     this.isIntercepting = true;
                     matchingGoal.intercepted = true;
-                    this.character.setTexture('eevee-jumping');
-                    this.tweens.add({
+                    this.tweens.timeline({
                         targets: this.character,
-                        y: matchingGoal.y - 50,
-                        duration: 300,
-                        ease: 'Sine.easeOut',
-                        onComplete: () => {
-                            const randomAttack = this.attackImages[Phaser.Math.Between(0, this.attackImages.length - 1)];
-                            this.character.setTexture(randomAttack);
-                        }
-                    });
-                    this.time.delayedCall(1500, () => {
-                        this.tweens.add({
-                            targets: this.character,
-                            y: this.floorY,
-                            duration: 300,
-                            ease: 'Sine.easeIn',
-                            onComplete: () => this.character.setTexture('eevee-walking').play('eevee-walking')
-                        });
+                        tweens: [
+                            {
+                                y: matchingGoal.y - 50,
+                                duration: 300,
+                                ease: 'Sine.easeOut',
+                                onComplete: () => {
+                                    const randomAttack = this.attackImages[Phaser.Math.Between(0, this.attackImages.length - 1)];
+                                    this.character.setTexture(randomAttack);
+                                }
+                            },
+                            {
+                                y: this.floorY,
+                                duration: 300,
+                                ease: 'Sine.easeIn',
+                                delay: 1500,
+                                onComplete: () => this.character.setTexture('eevee-walking').play('eevee-walking')
+                            }
+                        ]
                     });
                     this.tweens.add({
                         targets: matchingGoal,
@@ -841,9 +845,11 @@
                             duration: 2000,
                             onComplete: () => {
                                 this.enemy.setTexture(this.objects[objIndex].image.x < centerX ? 'enemyright' : 'enemyright').setFlipX(this.objects[objIndex].image.x > centerX);
-                                const wordText = this.add.text(this.enemy.x, this.enemy.y - 30, word, {
+                                const direction = this.objects[objIndex].image.x > centerX ? 1 : -1;
+                                const offsetX = direction * (this.enemy.width / 2 + 10);
+                                const wordText = this.add.text(this.enemy.x + offsetX, this.enemy.y, word, {
                                     font: '24px "Press Start 2P"',
-                                    fill: '#ffffff',
+                                    fill: '#ffffff', // White for high contrast
                                     stroke: '#000000',
                                     strokeThickness: 3
                                 }).setOrigin(0.5);
@@ -856,8 +862,8 @@
                                 });
                                 this.tweens.add({
                                     targets: [bgRect, wordText],
-                                    x: this.objects[objIndex].image.x,
-                                    y: this.objects[objIndex].image.y - 30,
+                                    x: this.objects[objIndex].image.x + offsetX,
+                                    y: this.objects[objIndex].image.y,
                                     duration: 3000,
                                     onComplete: () => {
                                         wordText.destroy();
@@ -983,9 +989,7 @@
                 const floorY = this.cameras.main.height * 0.75;
                 this.hudRect = this.add.rectangle(0, floorY, this.cameras.main.width, this.cameras.main.height / 4, 0x8B4513).setOrigin(0);
                 this.floorTiles = this.add.tileSprite(0, floorY, this.cameras.main.width, 64, 'grass').setOrigin(0, 0);
-
                 this.character = this.add.sprite(this.cameras.main.width / 4, floorY, 'eevee-walking').setOrigin(0.5, 1).setScale(2).play('eevee-walking');
-
                 const sentence = 'eeveeeeveeeeveeeeveeeeveeeeveeeeveeeevee';
                 this.goals = this.add.group();
                 sentence.split('').forEach((char, i) => {
@@ -995,13 +999,12 @@
                     goal.index = i;
                 });
                 this.currentIndex = 0;
-
                 this.input.keyboard.on('keydown', this.handleKeyPress, this);
             }
 
             update() {
-                this.background.tilePositionX -= 2;
-                this.floorTiles.tilePositionX -= 2;
+                if (this.background) this.background.tilePositionX -= 2;
+                if (this.floorTiles) this.floorTiles.tilePositionX -= 2;
                 this.goals.getChildren().forEach(goal => {
                     goal.x -= 2;
                     goal.text.x = goal.x;
