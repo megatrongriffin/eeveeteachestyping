@@ -56,6 +56,7 @@
             highScores: [],
             level: 1,
             wpm: 0,
+            maxWPM: 0,
             missedKeys: 0,
             totalTime: 0,
             bonusMeter: 0,
@@ -171,7 +172,7 @@
                 this.anims.create({
                     key: 'eevee-spin',
                     frames: this.anims.generateFrameNumbers('eevee-spin', { start: 0, end: 5 }),
-                    frameRate: 10,
+                    duration: 9000, // Slowed to 9 seconds per cycle
                     repeat: -1
                 });
                 this.anims.create({
@@ -228,27 +229,39 @@
             create() {
                 this.add.image(0, 0, 'bg_desert').setOrigin(0, 0).setDisplaySize(this.cameras.main.width, this.cameras.main.height);
 
-                const bottomY = this.cameras.main.height - 64;
-                const centerX = this.cameras.main.width / 2;
-                this.add.image(centerX - 32, bottomY, 'shroomstem');
-                const capY = bottomY - 64;
-                this.add.image(centerX - 96, capY, 'shroomleft');
-                this.add.image(centerX - 32, capY, 'shroommid');
-                this.add.image(centerX + 32, capY, 'shroomright');
-                const eeveeScale = (this.cameras.main.width / 3) / 64;
-                this.eeveeSprite = this.add.sprite(centerX, capY - 128, 'eevee-spin').setScale(eeveeScale).play('eevee-spin');
-
-                const topScale = this.cameras.main.width / (7 * 64);
                 const topY = 64;
+                const centerX = this.cameras.main.width / 2;
+                // Title aligned vertically with top shroom images
+                this.add.text(centerX, topY, 'EEVEE TEACHES TYPING', { font: '48px "Press Start 2P"', fill: '#ffffff' }).setOrigin(0.5);
+
+                // Bottom shroom images scaled to 2/3 of game height
+                const totalShroomHeight = (2 / 3) * this.cameras.main.height;
+                const s = totalShroomHeight / 128; // Original height is 128px (stem + cap)
+                const stemY = this.cameras.main.height - 64 * s;
+                const capY = stemY - 64 * s;
+                const stemX = centerX - 32 * s;
+                const leftCapX = centerX - 96 * s;
+                const midCapX = centerX - 32 * s;
+                const rightCapX = centerX + 32 * s;
+
+                this.add.image(stemX, stemY, 'shroomstem').setScale(s).setOrigin(0, 0);
+                this.add.image(leftCapX, capY, 'shroomleft').setScale(s).setOrigin(0, 0);
+                this.add.image(midCapX, capY, 'shroommid').setScale(s).setOrigin(0, 0);
+                this.add.image(rightCapX, capY, 'shroomright').setScale(s).setOrigin(0, 0);
+
+                // Top shroom images
+                const topScale = this.cameras.main.width / (7 * 64);
                 this.add.image(0, topY, 'shroomleft').setScale(topScale, topScale).setOrigin(0, 0.5);
                 for (let i = 1; i < 6; i++) {
                     this.add.image(i * 64 * topScale, topY, 'shroommid').setScale(topScale, topScale).setOrigin(0, 0.5);
                 }
                 this.add.image(6 * 64 * topScale, topY, 'shroomright').setScale(topScale, topScale).setOrigin(0, 0.5);
-                this.add.text(this.cameras.main.width / 2, topY + 32, 'EEVEE TEACHES TYPING', { font: '48px "Press Start 2P"', fill: '#ffffff' }).setOrigin(0.5);
+
+                const eeveeScale = (this.cameras.main.width / 3) / 64;
+                this.eeveeSprite = this.add.sprite(centerX, capY - 128, 'eevee-spin').setScale(eeveeScale).play('eevee-spin');
 
                 const highScoreText = gameState.highScores.length > 0 ?
-                    'High Scores:\n' + gameState.highScores.slice(0, 5).map((s, i) => `${i + 1}. ${s.name}: ${s.score}`).join('\n') :
+                    'High Scores:\n' + gameState.highScores.slice(0, 5).map((s, i) => `${i + 1}. ${s.name}: ${s.score} (WPM: ${s.wpm})`).join('\n') :
                     'No High Scores Yet';
                 this.add.text(50, this.cameras.main.height / 2 - 50, highScoreText, { font: '24px "Press Start 2P"', fill: '#000000' });
 
@@ -320,6 +333,7 @@
                     gameState.score = 0;
                     gameState.level = 1;
                     gameState.wpm = 0;
+                    gameState.maxWPM = 0;
                     gameState.missedKeys = 0;
                     gameState.totalTime = 0;
                     gameState.bonusMeter = 0;
@@ -330,7 +344,7 @@
                 gameState.paused = false;
 
                 this.background = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'bg_grasslands').setOrigin(0);
-                this.floorY = this.cameras.main.height * 0.75; // Store as class property
+                this.floorY = this.cameras.main.height * 0.75;
                 this.hudRect = this.add.rectangle(0, this.floorY, this.cameras.main.width, this.cameras.main.height / 4, 0x8B4513).setOrigin(0);
                 this.floorTiles = this.add.tileSprite(0, this.floorY, this.cameras.main.width, 64, 'grass').setOrigin(0, 0);
 
@@ -377,18 +391,21 @@
                 this.nextGoalsText = this.add.text(10, this.floorY + 110, '', { font: '40px "Press Start 2P"', fill: '#000000' });
 
                 this.goals = this.add.group();
-                this.spawnGoal(true);
-                this.time.delayedCall(1500, () => this.spawnGoal());
+                for (let i = 0; i < 4; i++) {
+                    this.time.delayedCall(i * 1000, () => this.spawnGoal());
+                }
 
                 this.secretBox = null;
                 this.typedSequence = '';
+                this.stoppedGoals = [];
+                this.currentGoal = null;
 
                 this.backgroundMusic = this.sound.add('tetris-1', { loop: true });
                 this.backgroundMusic.play();
 
                 this.input.keyboard.on('keydown', this.handleKeyPress, this);
 
-                this.isIntercepting = false; // Flag to track interception state
+                this.isIntercepting = false;
             }
 
             update(time) {
@@ -403,17 +420,21 @@
                 this.floorTiles.tilePositionX -= 2;
                 this.clouds.getChildren().forEach(cloud => cloud.x -= 2);
 
-                const missThreshold = 0;
                 this.goals.getChildren().forEach(goal => {
-                    if (!this.isIntercepting) { // Only move goals if not intercepting
-                        goal.x -= 2;
-                        goal.text.x = goal.x;
-                    }
-                    if (goal.x <= missThreshold && !goal.intercepted) {
-                        // Handle miss: pause game and show high score button
-                        gameState.paused = true;
-                        this.highScoreButton.setVisible(true);
-                        this.highScoreButton.y = this.pauseButton.y + this.pauseButton.height + 10;
+                    if (!goal.intercepted) {
+                        if (goal.x > this.characterX) {
+                            goal.x -= 2;
+                            goal.text.x = goal.x;
+                        } else {
+                            goal.x = this.characterX;
+                            goal.text.x = goal.x;
+                            if (!this.stoppedGoals.includes(goal)) {
+                                this.stoppedGoals.push(goal);
+                                if (!this.currentGoal) {
+                                    this.currentGoal = goal;
+                                }
+                            }
+                        }
                     }
                 });
 
@@ -449,7 +470,7 @@
                 const goal = this.goals.create(this.cameras.main.width + 70, y, 'boxEmpty').setScale(scale);
                 goal.text = this.add.text(goal.x, goal.y, key, { font: `${Math.floor(70 * scale * 5 / 8)}px monospace`, fill: '#000000' }).setOrigin(0.5);
                 goal.key = key;
-                goal.intercepted = false; // Initialize intercepted flag
+                goal.intercepted = false;
                 if (!initial) this.keyText.setText(`Key: ${key}`);
             }
 
@@ -472,27 +493,22 @@
                     return;
                 }
 
-                const goals = this.goals.getChildren().filter(g => !g.intercepted).sort((a, b) => a.x - b.x);
-                const nextGoal = goals[0];
-                if (nextGoal && event.key === nextGoal.key && !this.isIntercepting) {
+                if (this.currentGoal && event.key === this.currentGoal.key && !this.isIntercepting) {
                     this.isIntercepting = true;
-                    nextGoal.intercepted = true; // Mark as intercepted
-                    gameState.paused = false;
+                    this.currentGoal.intercepted = true;
                     const jumpHeight = 100;
-                    const duration = 500; // Total duration for the interception animation
+                    const duration = 500;
                     const targetX = this.characterX;
                     const targetY = this.floorY - jumpHeight;
 
-                    // Tween the goal to the position above the character
                     this.tweens.add({
-                        targets: nextGoal,
+                        targets: this.currentGoal,
                         x: targetX,
                         y: targetY,
                         duration: duration / 2,
                         ease: 'Linear'
                     });
 
-                    // Tween the character to jump up and back down
                     this.character.setTexture('eevee-jumping');
                     this.tweens.add({
                         targets: this.character,
@@ -501,27 +517,28 @@
                         ease: 'Sine.easeOut',
                         yoyo: true,
                         onYoyo: () => {
-                            // Interception logic at the peak of the jump
                             this.sound.play('brick_break');
-                            nextGoal.destroy();
-                            nextGoal.text.destroy();
+                            this.currentGoal.destroy();
+                            this.currentGoal.text.destroy();
                             gameState.score += 10;
                             gameState.bonusMeter++;
                             gameState.keysTyped++;
                             gameState.wpm = Math.round(gameState.keysTyped / (gameState.totalTime / 60) || 0);
+                            gameState.maxWPM = Math.max(gameState.maxWPM, gameState.wpm);
                         },
                         onComplete: () => {
                             this.isIntercepting = false;
                             this.character.setTexture('eevee-walking').play('eevee-walking');
                             this.keyText.setText('');
                             this.highScoreButton.setVisible(false);
-                            // Spawn a new goal if there are fewer than 2 on screen
-                            if (this.goals.getChildren().length < 2) {
+                            this.stoppedGoals = this.stoppedGoals.filter(g => g !== this.currentGoal);
+                            this.currentGoal = this.stoppedGoals[0] || null;
+                            if (this.goals.getChildren().length < 4) {
                                 this.spawnGoal();
                             }
                         }
                     });
-                } else if (!nextGoal || event.key !== nextGoal.key) {
+                } else if (!this.currentGoal || event.key !== this.currentGoal.key) {
                     if (!this.secretBox || (event.key !== 'e' && event.key !== 'v')) {
                         gameState.score = Math.max(0, gameState.score - 10);
                         gameState.missedKeys++;
@@ -546,7 +563,7 @@
 
             postHighScore() {
                 const name = prompt('Enter your name (max 7 characters):', 'Player').slice(0, 7);
-                gameState.highScores.push({ name, score: gameState.score });
+                gameState.highScores.push({ name, score: gameState.score, wpm: gameState.maxWPM });
                 gameState.highScores.sort((a, b) => b.score - a.score);
                 try {
                     localStorage.setItem('highScores', JSON.stringify(gameState.highScores));
@@ -598,8 +615,9 @@
                 this.floorTiles = this.add.tileSprite(0, floorY, this.cameras.main.width, 64, 'grass').setOrigin(0, 0);
 
                 this.character = this.add.sprite(64 * 3, floorY, 'eevee-standing').setOrigin(0.5, 1).setScale(2).play('eevee-standing');
+                this.characterX = 64 * 3;
 
-                this.boss = this.add.sprite(this.cameras.main.width - 100, this.cameras.main.height / 2, 'flyFly1').setScale(2);
+                this.boss = this.add.sprite(this.cameras.main.width - 100, this.cameras.main.height / 2, 'flyFly1').setScale(8 / 3); // 1/3 larger than scale 2
                 this.boss.health = 100;
                 this.bossMeterBg = this.add.rectangle(this.cameras.main.width / 2 - 100, 20, 200, 20, 0xff0000);
                 this.bossMeterFill = this.add.rectangle(this.cameras.main.width / 2 - 100, 20, 200, 20, 0x00ff00).setOrigin(0);
@@ -610,6 +628,8 @@
                 this.currentWord = null;
                 this.wordText = null;
                 this.wordIndex = 0;
+
+                this.wordSpeed = (this.boss.x - this.characterX) / (5 * 60); // 5 seconds to reach character
 
                 this.sound.play('warning');
                 this.time.addEvent({ delay: 4000, callback: this.shootWord, callbackScope: this, loop: true });
@@ -624,9 +644,9 @@
                 }
 
                 if (this.currentWord) {
-                    this.currentWord.x -= this.boss.health < 30 ? 2 : 1.5;
+                    this.currentWord.x -= this.wordSpeed;
                     this.wordText.x = this.currentWord.x;
-                    if (this.currentWord.x <= this.character.x) {
+                    if (this.currentWord.x <= this.characterX) {
                         this.boss.health = Math.min(100, this.boss.health + 10);
                         if (this.character) {
                             this.character.setTexture('eevee-damage').play('eevee-damage');
@@ -650,7 +670,7 @@
                 if (!this.currentWord) {
                     const word = this.words[Phaser.Math.Between(0, this.words.length - 1)];
                     this.currentWord = this.add.rectangle(this.boss.x, this.boss.y, 10, 10, 0x000000, 0);
-                    this.wordText = this.add.text(this.boss.x, this.boss.y, word, { font: '18px "Press Start 2P"', fill: '#000000' }).setOrigin(0.5);
+                    this.wordText = this.add.text(this.boss.x, this.boss.y, word, { font: '24px "Press Start 2P"', fill: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
                     this.currentWord.word = word;
                     this.wordIndex = 0;
                 }
@@ -659,17 +679,49 @@
             handleKeyPress(event) {
                 if (this.currentWord && event.key === this.currentWord.word[this.wordIndex]) {
                     this.wordIndex++;
-                    this.wordText.setText(this.currentWord.word.slice(0, this.wordIndex) + this.currentWord.word.slice(this.wordIndex));
+                    this.wordText.setText(`<color=#00ff00>${this.currentWord.word.slice(0, this.wordIndex)}</color>${this.currentWord.word.slice(this.wordIndex)}`);
                     if (this.wordIndex === this.currentWord.word.length) {
-                        this.currentWord.x -= 10;
-                        this.character.setTexture('eevee-attack').play('eevee-attack');
-                        this.time.delayedCall(1000, () => {
-                            this.character.setTexture('eevee-standing').play('eevee-standing');
-                            this.boss.health -= 10;
-                            gameState.score += 1000;
-                            this.currentWord.destroy();
-                            this.wordText.destroy();
-                            this.currentWord = null;
+                        this.wordText.destroy();
+                        const goalBlock = this.add.sprite(this.currentWord.x, this.currentWord.y, 'boxEmpty');
+                        const blockText = this.add.text(this.currentWord.x, this.currentWord.y, this.currentWord.word, { font: '18px "Press Start 2P"', fill: '#000000' }).setOrigin(0.5);
+                        const blockContainer = this.add.container(0, 0, [goalBlock, blockText]);
+                        this.tweens.add({
+                            targets: blockContainer,
+                            x: this.characterX,
+                            y: this.character.y,
+                            angle: 360,
+                            duration: 1000,
+                            ease: 'Linear',
+                            onComplete: () => {
+                                this.character.setTexture('eevee-attack').play('eevee-attack');
+                                this.tweens.add({
+                                    targets: blockContainer,
+                                    x: this.boss.x,
+                                    y: this.boss.y,
+                                    duration: 500,
+                                    ease: 'Linear',
+                                    onComplete: () => {
+                                        this.sound.play('brick_break');
+                                        blockContainer.destroy();
+                                        this.tweens.add({
+                                            targets: this.boss,
+                                            alpha: 0,
+                                            duration: 100,
+                                            yoyo: true,
+                                            repeat: 1,
+                                            onComplete: () => {
+                                                this.boss.health -= 10;
+                                                gameState.score += 1000;
+                                                this.currentWord.destroy();
+                                                this.currentWord = null;
+                                            }
+                                        });
+                                    }
+                                });
+                                this.time.delayedCall(2000, () => {
+                                    this.character.setTexture('eevee-standing').play('eevee-standing');
+                                });
+                            }
                         });
                     }
                 } else if (this.currentWord) {
@@ -692,8 +744,9 @@
                             y: { min: 0, max: this.cameras.main.height },
                             speed: 100,
                             lifespan: 2000,
-                            quantity: 5,
+                            quantity: 1,
                             scale: { start: 0.5, end: 0 },
+                            frequency: 100,
                             duration: 5000,
                             on: true
                         });
@@ -962,18 +1015,15 @@
                 return;
             }
 
-            // Create and append the canvas
             const canvas = document.createElement('canvas');
             canvas.id = 'gameCanvas';
             gameContainer.appendChild(canvas);
 
-            // Ensure the canvas is in the DOM before getting context
             if (!document.getElementById('gameCanvas')) {
                 console.error('Canvas was not appended to the DOM correctly');
                 return;
             }
 
-            // Get the context after appending to DOM
             const context = canvas.getContext('2d', { willReadFrequently: true });
             if (!context) {
                 console.error('Failed to get 2D context from canvas');
