@@ -273,7 +273,7 @@
                     const letter = this.add.text(x, startY, char, fontStyle).setOrigin(0.5).setDepth(4);
                     this.letters.push(letter);
                 });
-                this.startContainer = this.add.container(0, 0, this.letters);
+                this.startContainer = this.add.container(0, 0, this.letters).setDepth(4); // Ensure container is at depth 4
                 this.tweens.add({
                     targets: this.startContainer,
                     scale: 1.05,
@@ -499,6 +499,16 @@
                 this.secretBox = this.add.image(-70, y, 'boxsecret').setDepth(2);
                 this.secretBox.originalY = y;
                 this.secretBox.time = 0;
+
+                // Add scaling animation (20% increase)
+                this.tweens.add({
+                    targets: this.secretBox,
+                    scale: 1.2,
+                    duration: 500,
+                    yoyo: true,
+                    repeat: -1,
+                    ease: 'Sine.easeInOut'
+                });
             }
 
             handleKeyPress(event) {
@@ -973,6 +983,15 @@
             }
 
             create() {
+                // Set up background and core elements immediately
+                this.background = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'bg_shroom').setOrigin(0).setDepth(0);
+                const floorY = this.cameras.main.height * 0.75;
+                this.floorY = floorY; // Store for use in createGoals
+                this.hudRect = this.add.rectangle(0, floorY, this.cameras.main.width, this.cameras.main.height / 4, 0x8B4513).setOrigin(0).setDepth(1);
+                this.floorTiles = this.add.tileSprite(0, floorY, this.cameras.main.width, 64, 'grass').setOrigin(0, 0).setDepth(2);
+                this.character = this.add.sprite(this.cameras.main.width / 4, floorY, 'eevee-walking').setOrigin(0.5, 1).setScale(2).play('eevee-walking').setDepth(3);
+
+                // Intro animation
                 const secretText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 'EEEVEEE', {
                     font: '96px "Press Start 2P"',
                     fill: '#ff0000'
@@ -993,23 +1012,18 @@
                             ease: 'Sine.easeInOut',
                             onComplete: () => {
                                 secretText.destroy();
-                                this.createSecretLevel();
+                                this.createGoals();
                             }
                         });
                     }
                 });
             }
 
-            createSecretLevel() {
-                this.background = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'bg_shroom').setOrigin(0).setDepth(0);
-                const floorY = this.cameras.main.height * 0.75;
-                this.hudRect = this.add.rectangle(0, floorY, this.cameras.main.width, this.cameras.main.height / 4, 0x8B4513).setOrigin(0).setDepth(1);
-                this.floorTiles = this.add.tileSprite(0, floorY, this.cameras.main.width, 64, 'grass').setOrigin(0, 0).setDepth(2);
-                this.character = this.add.sprite(this.cameras.main.width / 4, floorY, 'eevee-walking').setOrigin(0.5, 1).setScale(2).play('eevee-walking').setDepth(3);
+            createGoals() {
                 const sentence = 'eeveeeeveeeeveeeeveeeeveeeeveeeeveeeevee';
                 this.goals = this.add.group();
                 sentence.split('').forEach((char, i) => {
-                    const goal = this.goals.create(-70 - i * 70, floorY, 'boxEmpty').setDepth(2);
+                    const goal = this.goals.create(-70 - i * 70, this.floorY, 'boxEmpty').setDepth(2);
                     goal.text = this.add.text(goal.x, goal.y, char, { font: '43px monospace', fill: '#ffffff' }).setOrigin(0.5).setDepth(2);
                     goal.key = char;
                     goal.index = i;
