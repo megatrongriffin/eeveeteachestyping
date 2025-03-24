@@ -172,7 +172,7 @@
                 this.anims.create({
                     key: 'eevee-spin',
                     frames: this.anims.generateFrameNumbers('eevee-spin', { start: 0, end: 5 }),
-                    duration: 9000, // Slowed to 9 seconds per cycle
+                    duration: 9000,
                     repeat: -1
                 });
                 this.anims.create({
@@ -229,33 +229,33 @@
             create() {
                 this.add.image(0, 0, 'bg_desert').setOrigin(0, 0).setDisplaySize(this.cameras.main.width, this.cameras.main.height);
 
-                const topY = 64;
-                const centerX = this.cameras.main.width / 2;
-                // Title aligned vertically with top shroom images
-                this.add.text(centerX, topY, 'EEVEE TEACHES TYPING', { font: '48px "Press Start 2P"', fill: '#ffffff' }).setOrigin(0.5);
-
-                // Bottom shroom images scaled to 2/3 of game height
                 const totalShroomHeight = (2 / 3) * this.cameras.main.height;
-                const s = totalShroomHeight / 128; // Original height is 128px (stem + cap)
+                const s = totalShroomHeight / 128;
                 const stemY = this.cameras.main.height - 64 * s;
-                const capY = stemY - 64 * s;
+                const capY = stemY - 64 * s; // No gap between stem and cap
+                const centerX = this.cameras.main.width / 2;
                 const stemX = centerX - 32 * s;
                 const leftCapX = centerX - 96 * s;
                 const midCapX = centerX - 32 * s;
                 const rightCapX = centerX + 32 * s;
 
+                // Bottom shroom images
                 this.add.image(stemX, stemY, 'shroomstem').setScale(s).setOrigin(0, 0);
                 this.add.image(leftCapX, capY, 'shroomleft').setScale(s).setOrigin(0, 0);
                 this.add.image(midCapX, capY, 'shroommid').setScale(s).setOrigin(0, 0);
                 this.add.image(rightCapX, capY, 'shroomright').setScale(s).setOrigin(0, 0);
 
-                // Top shroom images
+                // Top shroom images meshed with stem
+                const topY = capY + 32 * s; // Lowered to mesh with bottom shroom caps
                 const topScale = this.cameras.main.width / (7 * 64);
-                this.add.image(0, topY, 'shroomleft').setScale(topScale, topScale).setOrigin(0, 0.5);
+                this.add.image(0, topY, 'shroomleft').setScale(topScale).setOrigin(0, 0.5);
                 for (let i = 1; i < 6; i++) {
-                    this.add.image(i * 64 * topScale, topY, 'shroommid').setScale(topScale, topScale).setOrigin(0, 0.5);
+                    this.add.image(i * 64 * topScale, topY, 'shroommid').setScale(topScale).setOrigin(0, 0.5);
                 }
-                this.add.image(6 * 64 * topScale, topY, 'shroomright').setScale(topScale, topScale).setOrigin(0, 0.5);
+                this.add.image(6 * 64 * topScale, topY, 'shroomright').setScale(topScale).setOrigin(0, 0.5);
+
+                // Title on top of all images
+                this.add.text(centerX, topY, 'EEVEE TEACHES TYPING', { font: '48px "Press Start 2P"', fill: '#ffffff' }).setOrigin(0.5).setDepth(1);
 
                 const eeveeScale = (this.cameras.main.width / 3) / 64;
                 this.eeveeSprite = this.add.sprite(centerX, capY - 128, 'eevee-spin').setScale(eeveeScale).play('eevee-spin');
@@ -288,7 +288,6 @@
 
                 this.backgroundMusic = this.sound.add('wario', { loop: true });
                 this.backgroundMusic.play();
-                this.musicStarted = true;
 
                 this.typedIndex = 0;
                 this.input.keyboard.on('keydown', (event) => {
@@ -399,6 +398,9 @@
                 this.typedSequence = '';
                 this.stoppedGoals = [];
                 this.currentGoal = null;
+                this.goalsStopped = false;
+                this.speedBoost = 1;
+                this.attackImages = ['eevee-kick', 'eevee-punchone', 'eevee-punchtwo'];
 
                 this.backgroundMusic = this.sound.add('tetris-1', { loop: true });
                 this.backgroundMusic.play();
@@ -420,28 +422,30 @@
                 this.floorTiles.tilePositionX -= 2;
                 this.clouds.getChildren().forEach(cloud => cloud.x -= 2);
 
+                const onScreenGoals = this.goals.getChildren().filter(g => !g.intercepted);
+                if (onScreenGoals.length > 0) {
+                    const nearestGoal = onScreenGoals.reduce((min, g) => g.x < min.x ? g : min, onScreenGoals[0]);
+                    if (nearestGoal.x <= this.characterX) {
+                        this.goalsStopped = true;
+                        if (!this.currentGoal) this.currentGoal = nearestGoal;
+                    } else {
+                        this.goalsStopped = false;
+                    }
+                } else {
+                    this.goalsStopped = false;
+                }
+
                 this.goals.getChildren().forEach(goal => {
-                    if (!goal.intercepted) {
-                        if (goal.x > this.characterX) {
-                            goal.x -= 2;
-                            goal.text.x = goal.x;
-                        } else {
-                            goal.x = this.characterX;
-                            goal.text.x = goal.x;
-                            if (!this.stoppedGoals.includes(goal)) {
-                                this.stoppedGoals.push(goal);
-                                if (!this.currentGoal) {
-                                    this.currentGoal = goal;
-                                }
-                            }
-                        }
+                    if (!this.goalsStopped && !goal.intercepted) {
+                        goal.x -= 2 * this.speedBoost;
+                        goal.text.x = goal.x;
                     }
                 });
 
                 if (this.secretBox) {
                     this.secretBox.time += this.time.delta / 1000;
                     this.secretBox.y = this.secretBox.originalY + 20 * Math.sin(this.secretBox.time * Math.PI * 2);
-                    this.secretBox.x -= 5;
+                    this.secretBox.x -= 10; // Faster movement
                     if (this.secretBox.x < -70) {
                         this.secretBox.destroy();
                         this.secretBox = null;
@@ -453,7 +457,6 @@
                 this.missedText.setText(`Missed: ${gameState.missedKeys}`);
                 this.scoreText.setText(String(gameState.score).padStart(7, '0'));
                 this.bonusMeterFill.width = (gameState.bonusMeter / gameState.bonusMax) * 200;
-                const onScreenGoals = this.goals.getChildren().filter(g => g.x < this.cameras.main.width && !g.intercepted);
                 const nextGoals = onScreenGoals.slice(0, 2).map(g => g.key).join(' ');
                 this.nextGoalsText.setText(`Next: ${nextGoals}`);
 
@@ -461,7 +464,7 @@
                 if (gameState.bonusMeter >= gameState.bonusMax) this.scene.start('BonusLevelScene');
             }
 
-            spawnGoal(initial = false) {
+            spawnGoal() {
                 const keys = '1234567890abcdefghijklmnopqrstuvwxyz!@#$%^&*()_+-=[]{}|;:,.<>?'.split('');
                 const key = keys[Phaser.Math.Between(0, keys.length - 1)];
                 const yPositions = [this.floorY - 100, this.floorY - 200, this.floorY - 300];
@@ -471,11 +474,12 @@
                 goal.text = this.add.text(goal.x, goal.y, key, { font: `${Math.floor(70 * scale * 5 / 8)}px monospace`, fill: '#000000' }).setOrigin(0.5);
                 goal.key = key;
                 goal.intercepted = false;
-                if (!initial) this.keyText.setText(`Key: ${key}`);
+                this.keyText.setText(`Key: ${key}`);
             }
 
             spawnSecretBox() {
-                const y = this.floorY - 400;
+                const yPositions = [this.floorY - 100, this.floorY - 200, this.floorY - 300];
+                const y = yPositions[Phaser.Math.Between(0, 2)];
                 this.secretBox = this.add.image(this.cameras.main.width + 70, y, 'boxsecret');
                 this.secretBox.originalY = y;
                 this.secretBox.time = 0;
@@ -486,6 +490,8 @@
 
                 this.typedSequence += event.key;
                 if (this.typedSequence.endsWith('eevee') && this.secretBox) {
+                    this.tweens.killAll();
+                    this.time.removeAllEvents();
                     this.scene.start('SecretLevelScene');
                     this.secretBox.destroy();
                     this.secretBox = null;
@@ -496,46 +502,61 @@
                 if (this.currentGoal && event.key === this.currentGoal.key && !this.isIntercepting) {
                     this.isIntercepting = true;
                     this.currentGoal.intercepted = true;
-                    const jumpHeight = 100;
+                    const randomAttack = this.attackImages[Phaser.Math.Between(0, this.attackImages.length - 1)];
+                    this.character.setTexture(randomAttack);
                     const duration = 500;
                     const targetX = this.characterX;
-                    const targetY = this.floorY - jumpHeight;
+                    const targetY = this.character.y;
 
                     this.tweens.add({
                         targets: this.currentGoal,
                         x: targetX,
                         y: targetY,
                         duration: duration / 2,
-                        ease: 'Linear'
-                    });
-
-                    this.character.setTexture('eevee-jumping');
-                    this.tweens.add({
-                        targets: this.character,
-                        y: targetY,
-                        duration: duration / 2,
-                        ease: 'Sine.easeOut',
-                        yoyo: true,
-                        onYoyo: () => {
-                            this.sound.play('brick_break');
-                            this.currentGoal.destroy();
-                            this.currentGoal.text.destroy();
-                            gameState.score += 10;
-                            gameState.bonusMeter++;
-                            gameState.keysTyped++;
-                            gameState.wpm = Math.round(gameState.keysTyped / (gameState.totalTime / 60) || 0);
-                            gameState.maxWPM = Math.max(gameState.maxWPM, gameState.wpm);
-                        },
+                        ease: 'Linear',
                         onComplete: () => {
-                            this.isIntercepting = false;
-                            this.character.setTexture('eevee-walking').play('eevee-walking');
-                            this.keyText.setText('');
-                            this.highScoreButton.setVisible(false);
-                            this.stoppedGoals = this.stoppedGoals.filter(g => g !== this.currentGoal);
-                            this.currentGoal = this.stoppedGoals[0] || null;
-                            if (this.goals.getChildren().length < 4) {
-                                this.spawnGoal();
-                            }
+                            this.tweens.add({
+                                targets: [this.currentGoal, this.currentGoal.text],
+                                scale: 0,
+                                duration: 200,
+                                onComplete: () => {
+                                    this.sound.play('brick_break');
+                                    this.currentGoal.destroy();
+                                    this.currentGoal.text.destroy();
+                                    gameState.score += 10;
+                                    gameState.bonusMeter++;
+                                    gameState.keysTyped++;
+                                    gameState.wpm = Math.round(gameState.keysTyped / (gameState.totalTime / 60) || 0);
+                                    gameState.maxWPM = Math.max(gameState.maxWPM, gameState.wpm);
+                                    this.speedBoost = 2;
+                                    this.time.delayedCall(1000, () => {
+                                        this.speedBoost = 1;
+                                    });
+                                    this.goalsStopped = false;
+                                    this.isIntercepting = false;
+                                    this.character.setTexture('eevee-walking').play('eevee-walking');
+                                    this.keyText.setText('');
+                                    this.highScoreButton.setVisible(false);
+                                    this.stoppedGoals = this.stoppedGoals.filter(g => g !== this.currentGoal);
+                                    this.currentGoal = null;
+                                    const remainingGoals = this.goals.getChildren().filter(g => !g.intercepted);
+                                    if (remainingGoals.length > 0) {
+                                        const nextGoal = remainingGoals.reduce((min, g) => g.x < min.x ? g : min, remainingGoals[0]);
+                                        this.tweens.add({
+                                            targets: nextGoal,
+                                            x: this.characterX,
+                                            duration: 300,
+                                            ease: 'Linear',
+                                            onComplete: () => {
+                                                this.currentGoal = nextGoal;
+                                            }
+                                        });
+                                    }
+                                    if (this.goals.getChildren().length < 4) {
+                                        this.spawnGoal();
+                                    }
+                                }
+                            });
                         }
                     });
                 } else if (!this.currentGoal || event.key !== this.currentGoal.key) {
@@ -617,7 +638,7 @@
                 this.character = this.add.sprite(64 * 3, floorY, 'eevee-standing').setOrigin(0.5, 1).setScale(2).play('eevee-standing');
                 this.characterX = 64 * 3;
 
-                this.boss = this.add.sprite(this.cameras.main.width - 100, this.cameras.main.height / 2, 'flyFly1').setScale(8 / 3); // 1/3 larger than scale 2
+                this.boss = this.add.sprite(this.cameras.main.width - 100, this.cameras.main.height / 2, 'flyFly1').setScale(8 / 3);
                 this.boss.health = 100;
                 this.bossMeterBg = this.add.rectangle(this.cameras.main.width / 2 - 100, 20, 200, 20, 0xff0000);
                 this.bossMeterFill = this.add.rectangle(this.cameras.main.width / 2 - 100, 20, 200, 20, 0x00ff00).setOrigin(0);
@@ -629,7 +650,7 @@
                 this.wordText = null;
                 this.wordIndex = 0;
 
-                this.wordSpeed = (this.boss.x - this.characterX) / (5 * 60); // 5 seconds to reach character
+                this.wordSpeed = (this.boss.x - this.characterX) / (5 * 60);
 
                 this.sound.play('warning');
                 this.time.addEvent({ delay: 4000, callback: this.shootWord, callbackScope: this, loop: true });
@@ -739,18 +760,7 @@
                     ease: 'Sine.easeIn',
                     onComplete: () => {
                         this.sound.play('smbflag');
-                        this.add.particles('cloud1').createEmitter({
-                            x: { min: 0, max: this.cameras.main.width },
-                            y: { min: 0, max: this.cameras.main.height },
-                            speed: 100,
-                            lifespan: 2000,
-                            quantity: 1,
-                            scale: { start: 0.5, end: 0 },
-                            frequency: 100,
-                            duration: 5000,
-                            on: true
-                        });
-                        this.time.delayedCall(5000, () => {
+                        this.time.delayedCall(2000, () => {
                             gameState.level++;
                             this.scene.start('MainGameScene', { newGame: false });
                         });
