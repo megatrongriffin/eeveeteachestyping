@@ -266,14 +266,14 @@
                 const totalWidth = this.cameras.main.width * 0.6;
                 const charSpacing = totalWidth / (startString.length - 1);
                 const startX = (this.cameras.main.width - totalWidth) / 2;
-                const startY = this.cameras.main.height / 4; // Moved above Eevee
+                const startY = this.cameras.main.height / 4;
                 this.letters = [];
                 startString.split('').forEach((char, i) => {
                     const x = startX + i * charSpacing;
                     const letter = this.add.text(x, startY, char, fontStyle).setOrigin(0.5).setDepth(4);
                     this.letters.push(letter);
                 });
-                this.startContainer = this.add.container(0, 0, this.letters).setDepth(4); // Ensure container is at depth 4
+                this.startContainer = this.add.container(0, 0, this.letters).setDepth(4);
                 this.tweens.add({
                     targets: this.startContainer,
                     scale: 1.05,
@@ -421,8 +421,8 @@
 
                 const onScreenGoals = this.goals.getChildren().filter(g => !g.intercepted);
                 if (onScreenGoals.length > 0) {
-                    const leftmostGoal = onScreenGoals.reduce((left, g) => g.x < left.x ? g : left, onScreenGoals[0]);
-                    if (leftmostGoal.x >= this.characterX + 64) {
+                    const rightmostGoal = onScreenGoals.reduce((right, g) => g.x > right.x ? g : right, onScreenGoals[0]);
+                    if (rightmostGoal.x <= this.characterX - 64) { // Adjusted for right-to-left
                         this.movementPaused = true;
                     } else {
                         this.movementPaused = false;
@@ -433,29 +433,29 @@
                 this.highScoreButton.setVisible(this.movementPaused);
 
                 if (!this.movementPaused) {
-                    this.background.tilePositionX += totalSpeed;
-                    this.floorTiles.tilePositionX += totalSpeed;
+                    this.background.tilePositionX -= totalSpeed; // Scroll right for leftward world motion
+                    this.floorTiles.tilePositionX -= totalSpeed;
                     this.clouds.getChildren().forEach(cloud => {
-                        cloud.x += totalSpeed;
-                        if (cloud.x > this.cameras.main.width + cloud.width) {
-                            cloud.x = -cloud.width;
+                        cloud.x -= totalSpeed; // Clouds move left
+                        if (cloud.x < -cloud.width) {
+                            cloud.x = this.cameras.main.width + cloud.width;
                         }
                     });
                     this.goals.getChildren().forEach(goal => {
                         if (!goal.intercepted) {
-                            goal.x += totalSpeed;
+                            goal.x -= totalSpeed; // Goals move left
                             goal.text.x = goal.x;
-                            if (goal.x > this.cameras.main.width + 70) {
+                            if (goal.x < -70) { // Off-screen left
                                 goal.destroy();
                                 goal.text.destroy();
                             }
                         }
                     });
                     if (this.secretBox) {
-                        this.secretBox.x += 10;
+                        this.secretBox.x -= 10; // Secret box moves left
                         this.secretBox.y = this.secretBox.originalY + 20 * Math.sin(this.secretBox.time * Math.PI * 2);
                         this.secretBox.time += this.time.delta / 1000;
-                        if (this.secretBox.x > this.cameras.main.width + 70) {
+                        if (this.secretBox.x < -70) {
                             this.secretBox.destroy();
                             this.secretBox = null;
                         }
@@ -469,7 +469,7 @@
                 this.missedText.setText(`Missed: ${gameState.missedKeys}`);
                 this.scoreText.setText(String(gameState.score).padStart(7, '0'));
                 this.bonusMeterFill.width = (gameState.bonusMeter / gameState.bonusMax) * 200;
-                const nextGoal = onScreenGoals.length > 0 ? onScreenGoals[0].key : '';
+                const nextGoal = onScreenGoals.length > 0 ? onScreenGoals.reduce((right, g) => g.x > right.x ? g : right, onScreenGoals[0]).key : '';
                 this.nextGoalsText.setText(`Next: ${nextGoal}`);
 
                 if (gameState.score >= 1500 && gameState.score % 1500 === 0) this.scene.start('BossFightScene');
@@ -481,13 +481,13 @@
                 const key = keys[Phaser.Math.Between(0, keys.length - 1)];
                 const yPositions = [this.floorY - 100, this.floorY - 200, this.floorY - 300];
                 const occupied = yPositions.map(y => {
-                    const goalsOnLevel = this.goals.getChildren().filter(g => g.y === y && g.x < -70 + 100);
+                    const goalsOnLevel = this.goals.getChildren().filter(g => g.y === y && g.x > this.cameras.main.width - 100); // Check right side
                     return goalsOnLevel.length > 0;
                 });
                 const availableY = yPositions.filter((y, i) => !occupied[i]);
                 const y = availableY.length > 0 ? availableY[Phaser.Math.Between(0, availableY.length - 1)] : yPositions[Phaser.Math.Between(0, 2)];
                 const scale = Phaser.Math.FloatBetween(0.9, 1.1);
-                const goal = this.goals.create(-70, y, 'boxEmpty').setScale(scale).setDepth(2);
+                const goal = this.goals.create(this.cameras.main.width + 70, y, 'boxEmpty').setScale(scale).setDepth(2); // Spawn right
                 goal.text = this.add.text(goal.x, goal.y, key, { font: `${Math.floor(70 * scale * 5 / 8)}px monospace`, fill: '#ffffff' }).setOrigin(0.5).setDepth(2);
                 goal.key = key;
                 goal.intercepted = false;
@@ -496,11 +496,10 @@
             spawnSecretBox() {
                 const yPositions = [this.floorY - 100, this.floorY - 200, this.floorY - 300];
                 const y = yPositions[Phaser.Math.Between(0, 2)];
-                this.secretBox = this.add.image(-70, y, 'boxsecret').setDepth(2);
+                this.secretBox = this.add.image(this.cameras.main.width + 70, y, 'boxsecret').setDepth(2); // Spawn right
                 this.secretBox.originalY = y;
                 this.secretBox.time = 0;
 
-                // Add scaling animation (20% increase)
                 this.tweens.add({
                     targets: this.secretBox,
                     scale: 1.2,
@@ -527,12 +526,12 @@
 
                 const onScreenGoals = this.goals.getChildren().filter(g => !g.intercepted);
                 if (onScreenGoals.length > 0) {
-                    const leftmostGoal = onScreenGoals.reduce((left, g) => g.x < left.x ? g : left, onScreenGoals[0]);
-                    if (leftmostGoal.key === event.key) {
-                        leftmostGoal.intercepted = true;
+                    const rightmostGoal = onScreenGoals.reduce((right, g) => g.x > right.x ? g : right, onScreenGoals[0]); // Rightmost for left motion
+                    if (rightmostGoal.key === event.key) {
+                        rightmostGoal.intercepted = true;
                         this.sound.play('brick_break');
-                        leftmostGoal.destroy();
-                        leftmostGoal.text.destroy();
+                        rightmostGoal.destroy();
+                        rightmostGoal.text.destroy();
                         gameState.score += 10;
                         gameState.bonusMeter++;
                         gameState.keysTyped++;
@@ -548,7 +547,7 @@
                                 this.character.setTexture('eevee-walking').play('eevee-walking');
                             }
                         });
-                        this.extraSpeed += 1; // Increase speed
+                        this.extraSpeed += 1;
                     } else {
                         if (!this.secretBox || (event.key !== 'e' && event.key !== 'v')) {
                             gameState.score = Math.max(0, gameState.score - 10);
@@ -632,6 +631,7 @@
                 this.boss = this.add.sprite(this.cameras.main.width - 100, this.cameras.main.height / 2, 'flyFly1').setScale(8 / 3).setDepth(3);
                 this.boss.health = 100;
                 this.bossDefeated = false;
+                this.bossFightEnded = false; // Added to prevent multiple endBossFight calls
 
                 const meterX = this.cameras.main.width / 2;
                 const meterY = 20;
@@ -656,13 +656,13 @@
             }
 
             update() {
-                if (this.boss && !this.bossDefeated) {
+                if (this.boss && !this.bossDefeated && !this.bossFightEnded) { // Added !this.bossFightEnded
                     this.boss.setTexture((Math.floor(this.time.now / 700) % 2) ? 'flyFly1' : 'flyFly2');
                     this.bossMeterFill.width = (this.boss.health / 100) * 200;
                 }
 
                 if (this.currentWord) {
-                    this.wordContainer.x -= this.wordSpeed;
+                    this.wordContainer.x -= this.wordSpeed; // Already moves left, matches intent
                     if (this.wordContainer.x <= this.characterX) {
                         this.boss.health = Math.min(100, this.boss.health + 10);
                         if (this.character) {
@@ -681,7 +681,10 @@
                     }
                 }
 
-                if (this.boss && this.boss.health <= 0) this.endBossFight();
+                if (this.boss && this.boss.health <= 0 && !this.bossFightEnded) { // Added !this.bossFightEnded
+                    this.bossFightEnded = true;
+                    this.endBossFight();
+                }
             }
 
             shootWord() {
@@ -914,7 +917,7 @@
                 const inputBg = this.add.rectangle(this.cameras.main.width / 2, this.cameras.main.height / 2, 200, 40, 0xffffff).setStrokeStyle(2, 0x000000).setDepth(4);
                 this.inputField = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, '', {
                     font: '24px "Press Start 2P"',
-                    fill: '#000000' // Changed to black for white background
+                    fill: '#000000'
                 }).setOrigin(0.5).setDepth(4);
                 this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2 + 30, '<press enter>', { font: '18px "Press Start 2P"', fill: '#ffffff' }).setOrigin(0.5).setDepth(4);
 
@@ -983,18 +986,13 @@
             }
 
             create() {
-                // Set up background and core elements immediately
                 this.background = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'bg_shroom').setOrigin(0).setDepth(0);
                 const floorY = this.cameras.main.height * 0.75;
-                this.floorY = floorY; // Store for use in createGoals
+                this.floorY = floorY;
                 this.hudRect = this.add.rectangle(0, floorY, this.cameras.main.width, this.cameras.main.height / 4, 0x8B4513).setOrigin(0).setDepth(1);
                 this.floorTiles = this.add.tileSprite(0, floorY, this.cameras.main.width, 64, 'grass').setOrigin(0, 0).setDepth(2);
                 this.character = this.add.sprite(this.cameras.main.width / 4, floorY, 'eevee-walking').setOrigin(0.5, 1).setScale(2).play('eevee-walking').setDepth(3);
 
-                // Create goals immediately to avoid TypeError
-                this.createGoals();
-
-                // Intro animation
                 const secretText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 'EEEVEEE', {
                     font: '96px "Press Start 2P"',
                     fill: '#ff0000'
@@ -1015,33 +1013,34 @@
                             ease: 'Sine.easeInOut',
                             onComplete: () => {
                                 secretText.destroy();
+                                this.createGoals(); // Moved here to ensure camera is ready
                             }
                         });
                     }
                 });
+
+                this.input.keyboard.on('keydown', this.handleKeyPress, this);
             }
 
             createGoals() {
                 const sentence = 'eeveeeeveeeeveeeeveeeeveeeeveeeeveeeevee';
                 this.goals = this.add.group();
                 sentence.split('').forEach((char, i) => {
-                    const goal = this.goals.create(-70 - i * 70, this.floorY, 'boxEmpty').setDepth(2);
+                    const goal = this.goals.create(this.cameras.main.width + 70 + i * 70, this.floorY, 'boxEmpty').setDepth(2); // Spawn right
                     goal.text = this.add.text(goal.x, goal.y, char, { font: '43px monospace', fill: '#ffffff' }).setOrigin(0.5).setDepth(2);
                     goal.key = char;
                     goal.index = i;
                 });
                 this.totalGoals = sentence.length;
                 this.currentIndex = 0;
-                this.input.keyboard.on('keydown', this.handleKeyPress, this);
             }
 
             update() {
-                // Only update goals if they exist to prevent TypeError
                 if (this.goals) {
-                    this.background.tilePositionX += 2;
-                    this.floorTiles.tilePositionX += 2;
+                    this.background.tilePositionX -= 2; // Scroll right for leftward motion
+                    this.floorTiles.tilePositionX -= 2;
                     this.goals.getChildren().forEach(goal => {
-                        goal.x += 2;
+                        goal.x -= 2; // Move left
                         goal.text.x = goal.x;
                     });
                 }
