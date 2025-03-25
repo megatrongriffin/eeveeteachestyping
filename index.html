@@ -399,10 +399,6 @@
                 this.backgroundMusic.play();
 
                 this.input.keyboard.on('keydown', this.handleKeyPress, this);
-
-                this.goalsMoving = true;
-                this.waitingForKey = false;
-                this.leftmostGoal = null;
             }
 
             update(time) {
@@ -413,30 +409,33 @@
 
                 if (gameState.totalTime > 0 && hasThreeIdenticalDigits(gameState.totalTime) && !this.secretBox) this.spawnSecretBox();
 
-                this.background.tilePositionX -= 2;
-                this.floorTiles.tilePositionX -= 2;
-                this.clouds.getChildren().forEach(cloud => cloud.x -= 2);
-
-                if (this.goalsMoving) {
-                    const onScreenGoals = this.goals.getChildren().filter(g => !g.intercepted);
-                    if (onScreenGoals.length > 0) {
-                        this.leftmostGoal = onScreenGoals.reduce((left, g) => g.x < left.x ? g : left, onScreenGoals[0]);
-                        if (this.leftmostGoal.x <= this.characterX) {
-                            this.goalsMoving = false;
-                            this.waitingForKey = true;
-                            this.leftmostGoal.setTint(0xff0000); // Highlight
-                        }
+                // Reverse direction: background, floor tiles, and clouds move right
+                this.background.tilePositionX += 2;
+                this.floorTiles.tilePositionX += 2;
+                this.clouds.getChildren().forEach(cloud => {
+                    cloud.x += 2;
+                    if (cloud.x > this.cameras.main.width) {
+                        cloud.x = -cloud.width;
                     }
-                }
+                });
 
-                if (this.goalsMoving) {
-                    this.goals.getChildren().forEach(goal => {
-                        if (!goal.intercepted) {
-                            goal.x -= 2;
-                            goal.text.x = goal.x;
-                        }
-                    });
-                }
+                // Goals move left continuously
+                this.goals.getChildren().forEach(goal => {
+                    if (!goal.intercepted) {
+                        goal.x -= 2;
+                        goal.text.x = goal.x;
+                    }
+                });
+
+                // Check for missed goals
+                this.goals.getChildren().forEach(goal => {
+                    if (!goal.intercepted && goal.x < this.characterX) {
+                        gameState.score = Math.max(0, gameState.score - 10);
+                        gameState.missedKeys++;
+                        goal.destroy();
+                        goal.text.destroy();
+                    }
+                });
 
                 if (this.secretBox) {
                     this.secretBox.time += this.time.delta / 1000;
@@ -503,13 +502,12 @@
                     return;
                 }
 
-                if (this.waitingForKey && this.leftmostGoal && event.key === this.leftmostGoal.key) {
-                    this.interceptGoal(this.leftmostGoal);
-                    this.goalsMoving = true;
-                    this.waitingForKey = false;
-                    this.leftmostGoal.clearTint();
-                    this.leftmostGoal = null;
-                } else if (this.waitingForKey) {
+                const onScreenGoals = this.goals.getChildren().filter(g => !g.intercepted);
+                const matchingGoals = onScreenGoals.filter(g => g.key === event.key);
+                if (matchingGoals.length > 0) {
+                    const goalToIntercept = matchingGoals.reduce((left, g) => g.x < left.x ? g : left, matchingGoals[0]);
+                    this.interceptGoal(goalToIntercept);
+                } else {
                     gameState.score = Math.max(0, gameState.score - 10);
                     gameState.missedKeys++;
                     gameState.bonusMeter = Math.max(0, gameState.bonusMeter - 1);
