@@ -771,6 +771,7 @@
                         this.time.delayedCall(2000, () => {
                             gameState.level++;
                             this.scene.start('MainGameScene', { newGame: false });
+                            this.scene.stop(); // Stop the BossFightScene to prevent further updates
                         });
                     }
                 });
@@ -822,12 +823,13 @@
                 this.floorTiles = this.add.tileSprite(0, floorY, this.cameras.main.width, 64, 'grass').setOrigin(0, 0);
 
                 this.character = this.add.sprite(this.cameras.main.width / 2, floorY, 'eevee-climbing').setOrigin(0.5, 1).setScale(2).play('eevee-climbing');
+                this.character.setDepth(1); // Set depth to ensure Eevee is on top
 
                 const objects = [
-                    { key: 'bush', label: 'bush', x: this.cameras.main.width / 4, y: floorY - 100 },
-                    { key: 'boulder', label: 'boulder', x: 3 * this.cameras.main.width / 4, y: floorY - 100 },
-                    { key: 'tree', label: 'tree', x: this.cameras.main.width / 4, y: floorY - 300 },
-                    { key: 'cloud1', label: 'cloud', x: 3 * this.cameras.main.width / 4, y: floorY - 300 }
+                    { key: 'bush', label: 'bush', x: this.cameras.main.width / 4, y: floorY - 150 }, // Moved higher from -100
+                    { key: 'boulder', label: 'boulder', x: 3 * this.cameras.main.width / 4, y: floorY - 150 }, // Moved higher from -100
+                    { key: 'tree', label: 'tree', x: this.cameras.main.width / 4, y: floorY - 350 }, // Moved higher from -300
+                    { key: 'cloud1', label: 'cloud', x: 3 * this.cameras.main.width / 4, y: floorY - 350 } // Moved higher from -300
                 ];
                 this.objects = objects.map(obj => ({
                     image: this.add.image(obj.x, obj.y, obj.key).setScale(1.5),
@@ -873,12 +875,14 @@
                                 const offsetX = direction * (this.enemy.width / 2 + 10);
                                 const wordText = this.add.text(this.enemy.x + offsetX, this.enemy.y, word, {
                                     font: '24px "Press Start 2P"',
-                                    fill: '#ffffff',
+                                    fill: '#ffffff', // Ensure text is white
                                     stroke: '#000000',
                                     strokeThickness: 3
                                 }).setOrigin(0.5);
                                 const bounds = wordText.getBounds();
                                 const bgRect = this.add.rectangle(wordText.x, wordText.y, bounds.width + 10, bounds.height + 10, 0x000000).setOrigin(0.5);
+                                bgRect.setDepth(9); // Set depth for background rectangle
+                                wordText.setDepth(10); // Set depth for text to be on top
                                 this.tweens.add({
                                     targets: this.enemy,
                                     x: this.objects[objIndex].image.x,
