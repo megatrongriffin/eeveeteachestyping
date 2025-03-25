@@ -641,10 +641,13 @@
                 this.time.addEvent({ delay: 4000, callback: this.shootWord, callbackScope: this, loop: true });
 
                 this.input.keyboard.on('keydown', this.handleKeyPress, this);
+
+                this.bossDefeated = false; // Initialize flag to prevent multiple endBossFight calls and updates after defeat
             }
 
             update() {
-                if (this.boss) {
+                // Only update boss if it exists and hasn't been defeated
+                if (this.boss && !this.bossDefeated) {
                     this.boss.setTexture((Math.floor(this.time.now / 700) % 2) ? 'flyFly1' : 'flyFly2');
                     this.bossMeterFill.width = (this.boss.health / 100) * 200;
                 }
@@ -669,7 +672,11 @@
                     }
                 }
 
-                if (this.boss && this.boss.health <= 0) this.endBossFight();
+                // Call endBossFight only once when boss health reaches zero
+                if (this.boss && this.boss.health <= 0 && !this.bossDefeated) {
+                    this.bossDefeated = true;
+                    this.endBossFight();
+                }
             }
 
             shootWord() {
@@ -686,6 +693,9 @@
             }
 
             handleKeyPress(event) {
+                // Prevent further interactions after boss is defeated
+                if (this.bossDefeated) return;
+
                 if (this.currentWord && event.key === this.currentWord.word[this.wordIndex]) {
                     this.wordIndex++;
                     const typedPart = this.currentWord.word.slice(0, this.wordIndex);
