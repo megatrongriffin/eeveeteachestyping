@@ -266,7 +266,7 @@
                 const totalWidth = this.cameras.main.width * 0.6;
                 const charSpacing = totalWidth / (startString.length - 1);
                 const startX = (this.cameras.main.width - totalWidth) / 2;
-                const startY = this.cameras.main.height / 4; // Moved above Eevee
+                const startY = this.cameras.main.height / 4;
                 this.letters = [];
                 startString.split('').forEach((char, i) => {
                     const x = startX + i * charSpacing;
@@ -363,7 +363,7 @@
 
                 this.levelText = this.add.text(10, 10, `Level: ${gameState.level}`, { font: '32px "Press Start 2P"', fill: '#000000' });
                 this.pauseButton = this.add.text(this.cameras.main.width - 100, 10, 'PAUSE', {
-                    font: '32px "Press Start 2P"', // Increased size
+                    font: '32px "Press Start 2P"',
                     fill: '#000000',
                     backgroundColor: '#ff0000'
                 }).setOrigin(1, 0).setInteractive().on('pointerdown', () => this.togglePause());
@@ -400,7 +400,9 @@
 
                 this.input.keyboard.on('keydown', this.handleKeyPress, this);
 
-                this.isIntercepting = false;
+                this.goalsMoving = true;
+                this.waitingForKey = false;
+                this.leftmostGoal = null;
             }
 
             update(time) {
@@ -415,12 +417,26 @@
                 this.floorTiles.tilePositionX -= 2;
                 this.clouds.getChildren().forEach(cloud => cloud.x -= 2);
 
-                this.goals.getChildren().forEach(goal => {
-                    if (!goal.intercepted) {
-                        goal.x -= 2;
-                        goal.text.x = goal.x;
+                if (this.goalsMoving) {
+                    const onScreenGoals = this.goals.getChildren().filter(g => !g.intercepted);
+                    if (onScreenGoals.length > 0) {
+                        this.leftmostGoal = onScreenGoals.reduce((left, g) => g.x < left.x ? g : left, onScreenGoals[0]);
+                        if (this.leftmostGoal.x <= this.characterX) {
+                            this.goalsMoving = false;
+                            this.waitingForKey = true;
+                            this.leftmostGoal.setTint(0xff0000); // Highlight
+                        }
                     }
-                });
+                }
+
+                if (this.goalsMoving) {
+                    this.goals.getChildren().forEach(goal => {
+                        if (!goal.intercepted) {
+                            goal.x -= 2;
+                            goal.text.x = goal.x;
+                        }
+                    });
+                }
 
                 if (this.secretBox) {
                     this.secretBox.time += this.time.delta / 1000;
@@ -473,6 +489,7 @@
             }
 
             handleKeyPress(event) {
+                if (gameState.paused) return;
                 if (event.key === 'Shift') return;
 
                 this.typedSequence += event.key;
@@ -486,67 +503,67 @@
                     return;
                 }
 
-                const onScreenGoals = this.goals.getChildren().filter(g => !g.intercepted);
-                if (onScreenGoals.length > 0) {
-                    const leftmostGoal = onScreenGoals.reduce((left, g) => g.x < left.x ? g : left, onScreenGoals[0]);
-                    if (leftmostGoal.key === event.key && !this.isIntercepting) {
-                        this.isIntercepting = true;
-                        leftmostGoal.intercepted = true;
-                        this.spawnGoal(); // Spawn immediately
-                        this.tweens.timeline({
-                            targets: this.character,
-                            tweens: [
-                                {
-                                    y: leftmostGoal.y - 50,
-                                    duration: 300,
-                                    ease: 'Sine.easeOut',
-                                    onComplete: () => {
-                                        const randomAttack = this.attackImages[Phaser.Math.Between(0, this.attackImages.length - 1)];
-                                        this.character.setTexture(randomAttack);
-                                    }
-                                },
-                                {
-                                    y: this.floorY,
-                                    duration: 300,
-                                    ease: 'Sine.easeIn',
-                                    delay: 1500,
-                                    onComplete: () => this.character.setTexture('eevee-walking').play('eevee-walking')
-                                }
-                            ]
-                        });
-                        this.tweens.add({
-                            targets: leftmostGoal,
-                            x: this.characterX,
-                            y: leftmostGoal.y,
-                            duration: 500,
-                            ease: 'Linear',
+                if (this.waitingForKey && this.leftmostGoal && event.key === this.leftmostGoal.key) {
+                    this.interceptGoal(this.leftmostGoal);
+                    this.goalsMoving = true;
+                    this.waitingForKey = false;
+                    this.leftmostGoal.clearTint();
+                    this.leftmostGoal = null;
+                } else if (this.waitingForKey) {
+                    gameState.score = Math.max(0, gameState.score - 10);
+                    gameState.missedKeys++;
+                    gameState.bonusMeter = Math.max(0, gameState.bonusMeter - 1);
+                }
+            }
+
+            interceptGoal(goal) {
+                goal.intercepted = true;
+                this.spawnGoal();
+                this.tweens.timeline({
+                    targets: this.character,
+                    tweens: [
+                        {
+                            y: goal.y - 50,
+                            duration: 300,
+                            ease: 'Sine.easeOut',
                             onComplete: () => {
-                                this.tweens.add({
-                                    targets: [leftmostGoal, leftmostGoal.text],
-                                    scale: 0,
-                                    duration: 200,
-                                    onComplete: () => {
-                                        this.sound.play('brick_break');
-                                        leftmostGoal.destroy();
-                                        leftmostGoal.text.destroy();
-                                        gameState.score += 10;
-                                        gameState.bonusMeter++;
-                                        gameState.keysTyped++;
-                                        gameState.wpm = Math.round(gameState.keysTyped / (gameState.totalTime / 60) || 0);
-                                        gameState.maxWPM = Math.max(gameState.maxWPM, gameState.wpm);
-                                        this.isIntercepting = false;
-                                    }
-                                });
+                                const randomAttack = this.attackImages[Phaser.Math.Between(0, this.attackImages.length - 1)];
+                                this.character.setTexture(randomAttack);
+                            }
+                        },
+                        {
+                            y: this.floorY,
+                            duration: 300,
+                            ease: 'Sine.easeIn',
+                            delay: 500,
+                            onComplete: () => this.character.setTexture('eevee-walking').play('eevee-walking')
+                        }
+                    ]
+                });
+                this.tweens.add({
+                    targets: goal,
+                    x: this.characterX,
+                    y: goal.y,
+                    duration: 500,
+                    ease: 'Linear',
+                    onComplete: () => {
+                        this.tweens.add({
+                            targets: [goal, goal.text],
+                            scale: 0,
+                            duration: 200,
+                            onComplete: () => {
+                                this.sound.play('brick_break');
+                                goal.destroy();
+                                goal.text.destroy();
+                                gameState.score += 10;
+                                gameState.bonusMeter++;
+                                gameState.keysTyped++;
+                                gameState.wpm = Math.round(gameState.keysTyped / (gameState.totalTime / 60) || 0);
+                                gameState.maxWPM = Math.max(gameState.maxWPM, gameState.wpm);
                             }
                         });
-                    } else {
-                        if (!this.secretBox || (event.key !== 'e' && event.key !== 'v')) {
-                            gameState.score = Math.max(0, gameState.score - 10);
-                            gameState.missedKeys++;
-                            gameState.bonusMeter = Math.max(0, gameState.bonusMeter - 1);
-                        }
                     }
-                }
+                });
             }
 
             togglePause() {
@@ -642,11 +659,10 @@
 
                 this.input.keyboard.on('keydown', this.handleKeyPress, this);
 
-                this.bossDefeated = false; // Initialize flag to prevent multiple endBossFight calls and updates after defeat
+                this.bossDefeated = false;
             }
 
             update() {
-                // Only update boss if it exists and hasn't been defeated
                 if (this.boss && !this.bossDefeated) {
                     this.boss.setTexture((Math.floor(this.time.now / 700) % 2) ? 'flyFly1' : 'flyFly2');
                     this.bossMeterFill.width = (this.boss.health / 100) * 200;
@@ -672,7 +688,6 @@
                     }
                 }
 
-                // Call endBossFight only once when boss health reaches zero
                 if (this.boss && this.boss.health <= 0 && !this.bossDefeated) {
                     this.bossDefeated = true;
                     this.endBossFight();
@@ -693,7 +708,7 @@
             }
 
             handleKeyPress(event) {
-                // Prevent further interactions after boss is defeated
+                if (gameState.paused) return;
                 if (this.bossDefeated) return;
 
                 if (this.currentWord && event.key === this.currentWord.word[this.wordIndex]) {
@@ -771,7 +786,7 @@
                         this.time.delayedCall(2000, () => {
                             gameState.level++;
                             this.scene.start('MainGameScene', { newGame: false });
-                            this.scene.stop(); // Stop the BossFightScene to prevent further updates
+                            this.scene.stop();
                         });
                     }
                 });
@@ -779,6 +794,16 @@
 
             shutdown() {
                 this.time.removeAllEvents();
+                this.input.keyboard.off('keydown', this.handleKeyPress, this);
+                if (this.character) this.character.destroy();
+                if (this.boss) this.boss.destroy();
+                if (this.currentWord) this.currentWord.destroy();
+                if (this.wordContainer) this.wordContainer.destroy();
+                if (this.bossMeterBg) this.bossMeterBg.destroy();
+                if (this.bossMeterFill) this.bossMeterFill.destroy();
+                if (this.background) this.background.destroy();
+                if (this.hudRect) this.hudRect.destroy();
+                if (this.floorTiles) this.floorTiles.destroy();
             }
         }
 
@@ -823,13 +848,13 @@
                 this.floorTiles = this.add.tileSprite(0, floorY, this.cameras.main.width, 64, 'grass').setOrigin(0, 0);
 
                 this.character = this.add.sprite(this.cameras.main.width / 2, floorY, 'eevee-climbing').setOrigin(0.5, 1).setScale(2).play('eevee-climbing');
-                this.character.setDepth(1); // Set depth to ensure Eevee is on top
+                this.character.setDepth(1);
 
                 const objects = [
-                    { key: 'bush', label: 'bush', x: this.cameras.main.width / 4, y: floorY - 150 }, // Moved higher from -100
-                    { key: 'boulder', label: 'boulder', x: 3 * this.cameras.main.width / 4, y: floorY - 150 }, // Moved higher from -100
-                    { key: 'tree', label: 'tree', x: this.cameras.main.width / 4, y: floorY - 350 }, // Moved higher from -300
-                    { key: 'cloud1', label: 'cloud', x: 3 * this.cameras.main.width / 4, y: floorY - 350 } // Moved higher from -300
+                    { key: 'bush', label: 'bush', x: this.cameras.main.width / 4, y: floorY - 150 },
+                    { key: 'boulder', label: 'boulder', x: 3 * this.cameras.main.width / 4, y: floorY - 150 },
+                    { key: 'tree', label: 'tree', x: this.cameras.main.width / 4, y: floorY - 350 },
+                    { key: 'cloud1', label: 'cloud', x: 3 * this.cameras.main.width / 4, y: floorY - 350 }
                 ];
                 this.objects = objects.map(obj => ({
                     image: this.add.image(obj.x, obj.y, obj.key).setScale(1.5),
@@ -875,14 +900,14 @@
                                 const offsetX = direction * (this.enemy.width / 2 + 10);
                                 const wordText = this.add.text(this.enemy.x + offsetX, this.enemy.y, word, {
                                     font: '24px "Press Start 2P"',
-                                    fill: '#ffffff', // Ensure text is white
+                                    fill: '#ffffff',
                                     stroke: '#000000',
                                     strokeThickness: 3
                                 }).setOrigin(0.5);
                                 const bounds = wordText.getBounds();
                                 const bgRect = this.add.rectangle(wordText.x, wordText.y, bounds.width + 10, bounds.height + 10, 0x000000).setOrigin(0.5);
-                                bgRect.setDepth(9); // Set depth for background rectangle
-                                wordText.setDepth(10); // Set depth for text to be on top
+                                bgRect.setDepth(9);
+                                wordText.setDepth(10);
                                 this.tweens.add({
                                     targets: this.enemy,
                                     x: this.objects[objIndex].image.x,
