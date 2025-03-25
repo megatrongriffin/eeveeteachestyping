@@ -476,7 +476,7 @@
                 goal.text = this.add.text(goal.x, goal.y, key, { font: `${Math.floor(70 * scale * 5 / 8)}px monospace`, fill: '#000000' }).setOrigin(0.5);
                 goal.key = key;
                 goal.intercepted = false;
-                goal.passed = false; // Initialize passed flag
+                goal.passed = false;
             }
 
             spawnSecretBox() {
@@ -1024,9 +1024,7 @@
                             targets: secretText,
                             scale: 0.01,
                             duration: 1000,
-                            ease: 'Sine.easeInOut
-
-',
+                            ease: 'Sine.easeInOut',
                             onComplete: () => {
                                 secretText.destroy();
                                 this.createSecretLevel();
