@@ -339,6 +339,7 @@
                 gameState.paused = false;
 
                 this.background = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, 'bg_grasslands').setOrigin(0).setDepth(0);
+                this.cameras.main.setBackgroundColor('#87CEEB'); // Fix: Ensure background visibility
                 this.floorY = this.cameras.main.height * 0.75;
                 this.hudRect = this.add.rectangle(0, this.floorY, this.cameras.main.width, this.cameras.main.height / 4, 0x8B4513).setOrigin(0).setDepth(1);
                 this.floorTiles = this.add.tileSprite(0, this.floorY, this.cameras.main.width, 64, 'grass').setOrigin(0, 0).setDepth(2);
@@ -422,7 +423,7 @@
                 const onScreenGoals = this.goals.getChildren().filter(g => !g.intercepted);
                 if (onScreenGoals.length > 0) {
                     const rightmostGoal = onScreenGoals.reduce((right, g) => g.x > right.x ? g : right, onScreenGoals[0]);
-                    if (rightmostGoal.x <= this.characterX - 64) { // Adjusted for right-to-left
+                    if (rightmostGoal.x <= this.characterX - 64) {
                         this.movementPaused = true;
                     } else {
                         this.movementPaused = false;
@@ -436,23 +437,23 @@
                     this.background.tilePositionX -= totalSpeed; // Scroll right for leftward world motion
                     this.floorTiles.tilePositionX -= totalSpeed;
                     this.clouds.getChildren().forEach(cloud => {
-                        cloud.x -= totalSpeed; // Clouds move left
+                        cloud.x -= totalSpeed;
                         if (cloud.x < -cloud.width) {
                             cloud.x = this.cameras.main.width + cloud.width;
                         }
                     });
                     this.goals.getChildren().forEach(goal => {
                         if (!goal.intercepted) {
-                            goal.x -= totalSpeed; // Goals move left
+                            goal.x -= totalSpeed;
                             goal.text.x = goal.x;
-                            if (goal.x < -70) { // Off-screen left
+                            if (goal.x < -70) {
                                 goal.destroy();
                                 goal.text.destroy();
                             }
                         }
                     });
                     if (this.secretBox) {
-                        this.secretBox.x -= 10; // Secret box moves left
+                        this.secretBox.x -= 10;
                         this.secretBox.y = this.secretBox.originalY + 20 * Math.sin(this.secretBox.time * Math.PI * 2);
                         this.secretBox.time += this.time.delta / 1000;
                         if (this.secretBox.x < -70) {
@@ -481,13 +482,13 @@
                 const key = keys[Phaser.Math.Between(0, keys.length - 1)];
                 const yPositions = [this.floorY - 100, this.floorY - 200, this.floorY - 300];
                 const occupied = yPositions.map(y => {
-                    const goalsOnLevel = this.goals.getChildren().filter(g => g.y === y && g.x > this.cameras.main.width - 100); // Check right side
+                    const goalsOnLevel = this.goals.getChildren().filter(g => g.y === y && g.x > this.cameras.main.width - 100);
                     return goalsOnLevel.length > 0;
                 });
                 const availableY = yPositions.filter((y, i) => !occupied[i]);
                 const y = availableY.length > 0 ? availableY[Phaser.Math.Between(0, availableY.length - 1)] : yPositions[Phaser.Math.Between(0, 2)];
                 const scale = Phaser.Math.FloatBetween(0.9, 1.1);
-                const goal = this.goals.create(this.cameras.main.width + 70, y, 'boxEmpty').setScale(scale).setDepth(2); // Spawn right
+                const goal = this.goals.create(this.cameras.main.width + 70, y, 'boxEmpty').setScale(scale).setDepth(2);
                 goal.text = this.add.text(goal.x, goal.y, key, { font: `${Math.floor(70 * scale * 5 / 8)}px monospace`, fill: '#ffffff' }).setOrigin(0.5).setDepth(2);
                 goal.key = key;
                 goal.intercepted = false;
@@ -496,7 +497,7 @@
             spawnSecretBox() {
                 const yPositions = [this.floorY - 100, this.floorY - 200, this.floorY - 300];
                 const y = yPositions[Phaser.Math.Between(0, 2)];
-                this.secretBox = this.add.image(this.cameras.main.width + 70, y, 'boxsecret').setDepth(2); // Spawn right
+                this.secretBox = this.add.image(this.cameras.main.width + 70, y, 'boxsecret').setDepth(2);
                 this.secretBox.originalY = y;
                 this.secretBox.time = 0;
 
@@ -526,7 +527,7 @@
 
                 const onScreenGoals = this.goals.getChildren().filter(g => !g.intercepted);
                 if (onScreenGoals.length > 0) {
-                    const rightmostGoal = onScreenGoals.reduce((right, g) => g.x > right.x ? g : right, onScreenGoals[0]); // Rightmost for left motion
+                    const rightmostGoal = onScreenGoals.reduce((right, g) => g.x > right.x ? g : right, onScreenGoals[0]);
                     if (rightmostGoal.key === event.key) {
                         rightmostGoal.intercepted = true;
                         this.sound.play('brick_break');
@@ -631,7 +632,7 @@
                 this.boss = this.add.sprite(this.cameras.main.width - 100, this.cameras.main.height / 2, 'flyFly1').setScale(8 / 3).setDepth(3);
                 this.boss.health = 100;
                 this.bossDefeated = false;
-                this.bossFightEnded = false; // Added to prevent multiple endBossFight calls
+                this.bossFightEnded = false;
 
                 const meterX = this.cameras.main.width / 2;
                 const meterY = 20;
@@ -656,13 +657,13 @@
             }
 
             update() {
-                if (this.boss && !this.bossDefeated && !this.bossFightEnded) { // Added !this.bossFightEnded
+                if (this.boss && !this.bossDefeated && !this.bossFightEnded) {
                     this.boss.setTexture((Math.floor(this.time.now / 700) % 2) ? 'flyFly1' : 'flyFly2');
                     this.bossMeterFill.width = (this.boss.health / 100) * 200;
                 }
 
                 if (this.currentWord) {
-                    this.wordContainer.x -= this.wordSpeed; // Already moves left, matches intent
+                    this.wordContainer.x -= this.wordSpeed;
                     if (this.wordContainer.x <= this.characterX) {
                         this.boss.health = Math.min(100, this.boss.health + 10);
                         if (this.character) {
@@ -681,7 +682,7 @@
                     }
                 }
 
-                if (this.boss && this.boss.health <= 0 && !this.bossFightEnded) { // Added !this.bossFightEnded
+                if (this.boss && this.boss.health <= 0 && !this.bossFightEnded) {
                     this.bossFightEnded = true;
                     this.endBossFight();
                 }
@@ -1013,7 +1014,7 @@
                             ease: 'Sine.easeInOut',
                             onComplete: () => {
                                 secretText.destroy();
-                                this.createGoals(); // Moved here to ensure camera is ready
+                                this.createGoals();
                             }
                         });
                     }
@@ -1026,7 +1027,7 @@
                 const sentence = 'eeveeeeveeeeveeeeveeeeveeeeveeeeveeeevee';
                 this.goals = this.add.group();
                 sentence.split('').forEach((char, i) => {
-                    const goal = this.goals.create(this.cameras.main.width + 70 + i * 70, this.floorY, 'boxEmpty').setDepth(2); // Spawn right
+                    const goal = this.goals.create(this.cameras.main.width + 70 + i * 70, this.floorY, 'boxEmpty').setDepth(2);
                     goal.text = this.add.text(goal.x, goal.y, char, { font: '43px monospace', fill: '#ffffff' }).setOrigin(0.5).setDepth(2);
                     goal.key = char;
                     goal.index = i;
@@ -1037,10 +1038,10 @@
 
             update() {
                 if (this.goals) {
-                    this.background.tilePositionX -= 2; // Scroll right for leftward motion
+                    this.background.tilePositionX -= 2;
                     this.floorTiles.tilePositionX -= 2;
                     this.goals.getChildren().forEach(goal => {
-                        goal.x -= 2; // Move left
+                        goal.x -= 2;
                         goal.text.x = goal.x;
                     });
                 }
