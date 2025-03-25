@@ -419,21 +419,20 @@
                     }
                 });
 
-                // Goals move left continuously
+                // Move goals and handle wrapping
                 this.goals.getChildren().forEach(goal => {
                     if (!goal.intercepted) {
                         goal.x -= 2;
                         goal.text.x = goal.x;
-                    }
-                });
-
-                // Check for missed goals
-                this.goals.getChildren().forEach(goal => {
-                    if (!goal.intercepted && goal.x < this.characterX) {
-                        gameState.score = Math.max(0, gameState.score - 10);
-                        gameState.missedKeys++;
-                        goal.destroy();
-                        goal.text.destroy();
+                        if (goal.x < this.characterX && !goal.passed) {
+                            gameState.score = Math.max(0, gameState.score - 10);
+                            gameState.missedKeys++;
+                            goal.passed = true;
+                        }
+                        if (goal.x < -70) {
+                            goal.x = this.cameras.main.width + 70;
+                            goal.passed = false;
+                        }
                     }
                 });
 
@@ -477,6 +476,7 @@
                 goal.text = this.add.text(goal.x, goal.y, key, { font: `${Math.floor(70 * scale * 5 / 8)}px monospace`, fill: '#000000' }).setOrigin(0.5);
                 goal.key = key;
                 goal.intercepted = false;
+                goal.passed = false; // Initialize passed flag
             }
 
             spawnSecretBox() {
@@ -1024,7 +1024,9 @@
                             targets: secretText,
                             scale: 0.01,
                             duration: 1000,
-                            ease: 'Sine.easeInOut',
+                            ease: 'Sine.easeInOut
+
+',
                             onComplete: () => {
                                 secretText.destroy();
                                 this.createSecretLevel();
