@@ -914,7 +914,7 @@
                 const inputBg = this.add.rectangle(this.cameras.main.width / 2, this.cameras.main.height / 2, 200, 40, 0xffffff).setStrokeStyle(2, 0x000000).setDepth(4);
                 this.inputField = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, '', {
                     font: '24px "Press Start 2P"',
-                    fill: '#ffffff'
+                    fill: '#000000' // Changed to black for white background
                 }).setOrigin(0.5).setDepth(4);
                 this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2 + 30, '<press enter>', { font: '18px "Press Start 2P"', fill: '#ffffff' }).setOrigin(0.5).setDepth(4);
 
@@ -991,6 +991,9 @@
                 this.floorTiles = this.add.tileSprite(0, floorY, this.cameras.main.width, 64, 'grass').setOrigin(0, 0).setDepth(2);
                 this.character = this.add.sprite(this.cameras.main.width / 4, floorY, 'eevee-walking').setOrigin(0.5, 1).setScale(2).play('eevee-walking').setDepth(3);
 
+                // Create goals immediately to avoid TypeError
+                this.createGoals();
+
                 // Intro animation
                 const secretText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 'EEEVEEE', {
                     font: '96px "Press Start 2P"',
@@ -1012,7 +1015,6 @@
                             ease: 'Sine.easeInOut',
                             onComplete: () => {
                                 secretText.destroy();
-                                this.createGoals();
                             }
                         });
                     }
@@ -1034,12 +1036,15 @@
             }
 
             update() {
-                this.background.tilePositionX += 2;
-                this.floorTiles.tilePositionX += 2;
-                this.goals.getChildren().forEach(goal => {
-                    goal.x += 2;
-                    goal.text.x = goal.x;
-                });
+                // Only update goals if they exist to prevent TypeError
+                if (this.goals) {
+                    this.background.tilePositionX += 2;
+                    this.floorTiles.tilePositionX += 2;
+                    this.goals.getChildren().forEach(goal => {
+                        goal.x += 2;
+                        goal.text.x = goal.x;
+                    });
+                }
             }
 
             handleKeyPress(event) {
