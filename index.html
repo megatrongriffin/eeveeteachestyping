@@ -1125,30 +1125,3 @@
     </script>
 </body>
 </html>
-
-i am receiving this error after defeating the boss flyght scene
-and then the game freezes
-
-phaser.min.js:1 Uncaught TypeError: Cannot read properties of undefined (reading 'sys')
-    at initialize.setTexture (phaser.min.js:1:723427)
-    at BossFightScene.update ((index):648:31)
-    at initialize.step (phaser.min.js:1:225442)
-    at initialize.update (phaser.min.js:1:490723)
-    at initialize.step (phaser.min.js:1:793006)
-    at initialize.step (phaser.min.js:1:433503)
-    at t (phaser.min.js:1:434427)
-
-please fix this issue 
-
-please reverse the direction of the floor objects and background as they are moving the wrong way;
-
-please make gameplay so the user has to press the keys in the correct order, but make sure there is no wait time after the first key to the second key, so if the player were typing fast they can type all four keys in the correct order without hesitation;
-
-this could cause issues with how the blocks move into the screen being too close to eachother; please add a method where blocks will move in faster without overlaying eachother or being at the same horizontal position
-(so basically the faster a user types the faster the blocks come in and the faster the background and floor objects move;
-at the time the blocks are moving faster please change the characters sprite image to
-assets/eevee-running.png (a 63 pixel 6 frame sprite file)
-and when the blocks slow down again change it back to eevee-walking
-please have all the floor background and goal blocks stop moving when the next goal reaches 1 tile right of the characters vertical position (but keep the game clock going and show the "post high scores" button as if the game were paused)
-
-please make these edits and make sure there are no conflicting gameplay results and compile the code into a single file html format and dont skip for brevity so that i can copy and paste later, thankyou grok!!
